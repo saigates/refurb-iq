@@ -257,3 +257,199 @@ export interface DashboardStats {
   total_revenue_mtd: number;
   avg_margin_percent: number;
 }
+
+// ── Courier & INR ─────────────────────────────────────────────────────────────
+
+export type CourierStatus =
+  | 'OPEN'
+  | 'SUBMITTED_TO_CARRIER'
+  | 'UNDER_INVESTIGATION'
+  | 'EVIDENCE_REQUIRED'
+  | 'CLAIM_SUBMITTED'
+  | 'CLAIM_APPROVED'
+  | 'CLAIM_REJECTED'
+  | 'ESCALATED'
+  | 'RESOLVED_LOSS'
+  | 'RESOLVED_FOUND'
+  | 'CLOSED';
+
+export type CourierEventType =
+  | 'INR'           // Item Not Received
+  | 'DAMAGED'       // Delivered Damaged
+  | 'LOST_IN_TRANSIT'
+  | 'WRONG_ITEM'
+  | 'LATE_DELIVERY';
+
+export interface CourierInvestigation {
+  investigation_id: string;
+  company_id: string;
+  order_id: string;
+  ticket_id?: string;
+  device_id?: string;
+  imei?: string;
+  event_type: CourierEventType;
+  courier: string;
+  tracking_number: string;
+  dispatch_date: string;
+  expected_delivery_date: string;
+  last_tracking_event: string;
+  last_tracking_date: string;
+  customer_name: string;
+  customer_email: string;
+  marketplace: string;
+  sale_value: number;
+  claimed_amount: number;
+  recovery_amount: number;
+  status: CourierStatus;
+  carrier_reference?: string;
+  opened_at: string;
+  resolved_at?: string;
+  assigned_to?: string;
+  notes?: string;
+  evidence_items: EvidenceItem[];
+  timeline: InvestigationEvent[];
+}
+
+export interface EvidenceItem {
+  evidence_id: string;
+  type: 'PROOF_OF_DISPATCH' | 'TRACKING_SCREENSHOT' | 'CARRIER_RESPONSE' | 'CUSTOMER_STATEMENT' | 'PHOTO' | 'OTHER';
+  filename: string;
+  uploaded_at: string;
+  uploaded_by: string;
+}
+
+export interface InvestigationEvent {
+  event_id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  notes?: string;
+}
+
+// ── RMA / Returns ─────────────────────────────────────────────────────────────
+
+export type RMAStatus =
+  | 'REQUESTED'
+  | 'AUTHORISED'
+  | 'IN_TRANSIT_BACK'
+  | 'RECEIVED'
+  | 'RETURN_QC_PENDING'
+  | 'QC_PASS_NO_FAULT'
+  | 'QC_FAIL_FAULT_CONFIRMED'
+  | 'IMEI_MISMATCH'
+  | 'REFUND_APPROVED'
+  | 'REPLACEMENT_DISPATCHED'
+  | 'CLOSED_NO_ACTION'
+  | 'CLOSED';
+
+export type RMAResolution =
+  | 'FULL_REFUND'
+  | 'PARTIAL_REFUND'
+  | 'REPLACEMENT'
+  | 'RETURN_TO_CUSTOMER'
+  | 'SCRAPPED'
+  | 'RESTOCKED'
+  | 'PENDING';
+
+export interface RMARecord {
+  rma_id: string;
+  company_id: string;
+  order_id: string;
+  ticket_id?: string;
+  device_id: string;
+  imei_sold: string;
+  imei_returned?: string;
+  imei_match: boolean | null;
+  customer_name: string;
+  customer_email: string;
+  marketplace: string;
+  return_reason: string;
+  return_category: 'FAULT' | 'WRONG_ITEM' | 'CHANGE_OF_MIND' | 'DAMAGED_IN_TRANSIT' | 'NOT_AS_DESCRIBED' | 'OTHER';
+  sale_value: number;
+  refund_amount: number;
+  status: RMAStatus;
+  resolution: RMAResolution;
+  authorised_by?: string;
+  authorised_at?: string;
+  received_at?: string;
+  qc_id?: string;
+  return_label_tracking?: string;
+  marketplace_case_ref?: string;
+  opened_at: string;
+  closed_at?: string;
+  notes?: string;
+  timeline: RMAEvent[];
+}
+
+export interface RMAEvent {
+  event_id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  system_generated: boolean;
+  notes?: string;
+}
+
+// ── Profitability / Unit P&L ──────────────────────────────────────────────────
+
+export interface UnitPnL {
+  device_id: string;
+  imei: string;
+  make: string;
+  model: string;
+  storage: string;
+  grade: string;
+  order_id?: string;
+  marketplace?: string;
+  sale_date?: string;
+  // Revenue
+  gross_sale: number;
+  vat_on_sale: number;
+  net_revenue: number;
+  // Costs
+  purchase_cost: number;
+  opr_uplift: number;
+  marketplace_fee: number;
+  fintech_fee: number;
+  shipping_cost: number;
+  repair_cost: number;
+  total_costs: number;
+  // Recovery
+  recovery_amount: number;
+  // Result
+  net_profit: number;
+  margin_percent: number;
+  status: 'SOLD' | 'IN_STOCK' | 'IN_OPR' | 'SCRAPPED';
+}
+
+export interface ProfitabilitySummary {
+  period: string;
+  total_units_sold: number;
+  total_gross_revenue: number;
+  total_vat_collected: number;
+  total_net_revenue: number;
+  total_costs: number;
+  total_net_profit: number;
+  avg_margin_percent: number;
+  best_margin_device: string;
+  worst_margin_device: string;
+  by_marketplace: MarketplacePnL[];
+  by_make: MakePnL[];
+}
+
+export interface MarketplacePnL {
+  marketplace: string;
+  units: number;
+  revenue: number;
+  profit: number;
+  margin_percent: number;
+  avg_fee_percent: number;
+}
+
+export interface MakePnL {
+  make: string;
+  units: number;
+  revenue: number;
+  profit: number;
+  margin_percent: number;
+}

@@ -155,6 +155,25 @@ function getIndexHTML(): string {
       <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">3</span>
     </button>
 
+    <button onclick="navigateTo('courier')" id="nav-courier" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-truck-fast w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Courier & INR</span>
+      <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">2</span>
+    </button>
+
+    <button onclick="navigateTo('rma')" id="nav-rma" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-undo w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Returns & RMA</span>
+      <span class="ml-auto bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">!</span>
+    </button>
+
+    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Analytics</div>
+
+    <button onclick="navigateTo('profitability')" id="nav-profitability" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-chart-line w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Profitability & P&L</span>
+    </button>
+
     <button onclick="navigateTo('admin')" id="nav-admin" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
       <i class="fas fa-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
       <span>Admin & Settings</span>
@@ -167,7 +186,7 @@ function getIndexHTML(): string {
       <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
       <span>System Operational</span>
     </div>
-    <div class="mt-1">v2.0.0 · Phase 1 Build</div>
+    <div class="mt-1">v2.1.0 · Phase 2 Build</div>
   </div>
 </aside>
 
@@ -374,6 +393,9 @@ function navigateTo(page) {
     fintech: ['Fintech Advances', 'Advance Reconciliation'],
     suppliers: ['Suppliers & Batches', 'Purchase Management'],
     support: ['Support & Tickets', 'Customer Communications'],
+    courier: ['Courier & INR', 'Investigations & Loss Recovery'],
+    rma: ['Returns & RMA', 'Return QC & Resolution Workflow'],
+    profitability: ['Profitability & P&L', 'Unit Economics & Margin Analytics'],
     admin: ['Admin & Settings', 'System Configuration'],
   };
   const [title, sub] = pages[page] || ['RefurbIQ', ''];
@@ -391,6 +413,9 @@ function navigateTo(page) {
     fintech: renderFintech,
     suppliers: renderSuppliers,
     support: renderSupport,
+    courier: renderCourier,
+    rma: renderRMA,
+    profitability: renderProfitability,
     admin: renderAdmin,
   };
   
@@ -1951,9 +1976,615 @@ function renderAdmin() {
   \`;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: COURIER & INR INVESTIGATIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderCourier() {
+  const [investigations, stats] = await Promise.all([
+    axios.get(API + '/investigations').then(r => r.data),
+    axios.get(API + '/investigations/stats/summary').then(r => r.data),
+  ]);
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-5">
+      <!-- Stats -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${statCard('Open Cases', stats.open, 'fa-folder-open', 'bg-amber-700', 'Active investigations')}
+        \${statCard('Total Claimed', fmt(stats.totalClaimed), 'fa-file-invoice-dollar', 'bg-blue-700', 'From carriers')}
+        \${statCard('Total Recovered', fmt(stats.totalRecovered), 'fa-hand-holding-usd', 'bg-emerald-700', 'Successfully reclaimed')}
+        \${statCard('Recovery Rate', stats.recoveryRate + '%', 'fa-percentage', stats.recoveryRate >= 60 ? 'bg-emerald-700' : 'bg-red-700', 'Claims success rate')}
+      </div>
+
+      <!-- Controls -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <select id="inv-status-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterInvestigations()">
+            <option value="">All Statuses</option>
+            <option>OPEN</option>
+            <option>SUBMITTED_TO_CARRIER</option>
+            <option>UNDER_INVESTIGATION</option>
+            <option>EVIDENCE_REQUIRED</option>
+            <option>CLAIM_SUBMITTED</option>
+            <option>CLAIM_APPROVED</option>
+            <option>CLAIM_REJECTED</option>
+            <option>RESOLVED_LOSS</option>
+            <option>RESOLVED_FOUND</option>
+          </select>
+          <select id="inv-type-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterInvestigations()">
+            <option value="">All Types</option>
+            <option value="INR">INR — Item Not Received</option>
+            <option value="DAMAGED">Damaged in Transit</option>
+            <option value="LOST_IN_TRANSIT">Lost in Transit</option>
+            <option value="WRONG_ITEM">Wrong Item</option>
+            <option value="LATE_DELIVERY">Late Delivery</option>
+          </select>
+        </div>
+        <button onclick="showNewInvestigationModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <i class="fas fa-plus"></i> Open Investigation
+        </button>
+      </div>
+
+      <!-- Process Guide -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="flex items-center gap-3 mb-3">
+          <i class="fas fa-route text-blue-400"></i>
+          <span class="font-semibold text-white text-sm">INR Investigation Workflow</span>
+        </div>
+        <div class="flex items-center gap-1 overflow-x-auto pb-1">
+          \${['Open Case', 'Upload Evidence', 'Submit to Carrier', 'Under Investigation', 'Claim Decision', 'Recovery / Loss'].map((step, i) => \`
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <div class="flex flex-col items-center">
+                <div class="w-7 h-7 rounded-full bg-blue-900/60 border border-blue-700/50 flex items-center justify-center text-xs font-bold text-blue-300">\${i+1}</div>
+                <div class="text-xs text-gray-400 mt-1 whitespace-nowrap">\${step}</div>
+              </div>
+              \${i < 5 ? '<i class="fas fa-chevron-right text-gray-600 mt-[-14px] mx-1"></i>' : ''}
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      <!-- Investigations Table -->
+      <div id="inv-table">
+        \${renderInvestigationsTable(investigations)}
+      </div>
+    </div>
+  \`;
+  window._allInvestigations = investigations;
+}
+
+function invStatusBadge(status) {
+  const map = {
+    OPEN: ['bg-gray-500/20 text-gray-300 border-gray-500/30', 'fa-folder-open'],
+    SUBMITTED_TO_CARRIER: ['bg-blue-500/20 text-blue-400 border-blue-500/30', 'fa-paper-plane'],
+    UNDER_INVESTIGATION: ['bg-amber-500/20 text-amber-400 border-amber-500/30', 'fa-search'],
+    EVIDENCE_REQUIRED: ['bg-orange-500/20 text-orange-400 border-orange-500/30', 'fa-exclamation-triangle'],
+    CLAIM_SUBMITTED: ['bg-purple-500/20 text-purple-400 border-purple-500/30', 'fa-file-alt'],
+    CLAIM_APPROVED: ['bg-emerald-500/20 text-emerald-400 border-emerald-500/30', 'fa-check-circle'],
+    CLAIM_REJECTED: ['bg-red-500/20 text-red-400 border-red-500/30', 'fa-times-circle'],
+    ESCALATED: ['bg-red-700/30 text-red-300 border-red-700/50', 'fa-exclamation-circle'],
+    RESOLVED_LOSS: ['bg-red-900/30 text-red-400 border-red-900/50', 'fa-minus-circle'],
+    RESOLVED_FOUND: ['bg-emerald-900/30 text-emerald-400 border-emerald-900/50', 'fa-check-double'],
+    CLOSED: ['bg-gray-700/30 text-gray-400 border-gray-700/50', 'fa-archive'],
+  };
+  const [cls, icon] = map[status] || ['bg-gray-500/20 text-gray-400 border-gray-500/30', 'fa-question'];
+  return \`<span class="status-badge inline-flex items-center gap-1 border rounded-full px-2.5 py-0.5 \${cls}"><i class="fas \${icon} text-xs"></i> \${status.replace(/_/g,' ')}</span>\`;
+}
+
+function eventTypeBadge(type) {
+  const map = {
+    INR: 'bg-red-500/20 text-red-400',
+    DAMAGED: 'bg-orange-500/20 text-orange-400',
+    LOST_IN_TRANSIT: 'bg-red-700/20 text-red-300',
+    WRONG_ITEM: 'bg-purple-500/20 text-purple-400',
+    LATE_DELIVERY: 'bg-amber-500/20 text-amber-400',
+  };
+  return \`<span class="text-xs px-2 py-0.5 rounded-full \${map[type] || 'bg-gray-600/30 text-gray-400'}">\${type.replace(/_/g,' ')}</span>\`;
+}
+
+function renderInvestigationsTable(investigations) {
+  return table(
+    ['Inv. ID', 'Order', 'Customer', 'Type', 'Courier / Tracking', 'Sale Value', 'Claimed', 'Recovered', 'Status', 'Actions'],
+    investigations.map(inv => [
+      \`<span class="font-mono text-xs text-blue-300">\${inv.investigation_id}</span>\`,
+      \`<span class="font-mono text-xs text-gray-300">\${inv.order_id}</span>\`,
+      \`<div class="text-sm text-white">\${inv.customer_name}</div><div class="text-xs text-gray-400">\${inv.marketplace}</div>\`,
+      eventTypeBadge(inv.event_type),
+      \`<div class="text-xs text-gray-300">\${inv.courier}</div><code class="text-xs text-blue-300">\${inv.tracking_number}</code>\`,
+      fmt(inv.sale_value),
+      \`<span class="text-amber-400">\${fmt(inv.claimed_amount)}</span>\`,
+      inv.recovery_amount > 0 ? \`<span class="font-bold text-emerald-400">\${fmt(inv.recovery_amount)}</span>\` : '<span class="text-gray-600">—</span>',
+      invStatusBadge(inv.status),
+      \`<button onclick="viewInvestigation('\${inv.investigation_id}')" class="text-xs text-blue-400 bg-blue-900/20 px-2.5 py-1 rounded-lg hover:bg-blue-900/40">View</button>\`,
+    ])
+  );
+}
+
+function filterInvestigations() {
+  const status = document.getElementById('inv-status-filter')?.value || '';
+  const type = document.getElementById('inv-type-filter')?.value || '';
+  const filtered = (window._allInvestigations || []).filter(i => (!status || i.status === status) && (!type || i.event_type === type));
+  document.getElementById('inv-table').innerHTML = renderInvestigationsTable(filtered);
+}
+
+async function viewInvestigation(id) {
+  const inv = await axios.get(API + '/investigations/' + id).then(r => r.data);
+  const evidenceHtml = inv.evidence_items.map(e => \`
+    <div class="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-file-pdf text-red-400 text-sm"></i>
+        <div>
+          <div class="text-sm text-white">\${e.filename}</div>
+          <div class="text-xs text-gray-400">\${e.type.replace(/_/g,' ')} · \${fmtDate(e.uploaded_at)} · \${e.uploaded_by}</div>
+        </div>
+      </div>
+      <button class="text-xs text-blue-400 hover:text-blue-300">Download</button>
+    </div>
+  \`).join('') || '<p class="text-sm text-gray-500">No evidence uploaded yet</p>';
+
+  const timelineHtml = inv.timeline.map(t => \`
+    <div class="flex gap-3">
+      <div class="flex flex-col items-center">
+        <div class="w-7 h-7 rounded-full \${t.system_generated ? 'bg-blue-900/50 border border-blue-700/50' : 'bg-gray-700 border border-gray-600'} flex items-center justify-center flex-shrink-0">
+          <i class="fas \${t.system_generated ? 'fa-robot text-blue-400' : 'fa-user text-gray-300'} text-xs"></i>
+        </div>
+        <div class="flex-1 w-px bg-gray-700 mt-1"></div>
+      </div>
+      <div class="pb-4 flex-1">
+        <div class="text-xs text-gray-400">\${new Date(t.timestamp).toLocaleString('en-GB')} · \${t.actor}</div>
+        <div class="text-sm text-gray-200 mt-0.5">\${t.action}</div>
+      </div>
+    </div>
+  \`).join('');
+
+  openModal(\`Investigation \${inv.investigation_id} — \${inv.event_type.replace(/_/g,' ')}\`, \`
+    <div class="space-y-4 text-sm">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">\${invStatusBadge(inv.status)} \${eventTypeBadge(inv.event_type)}</div>
+          <div class="text-white font-semibold">\${inv.customer_name} · \${inv.marketplace}</div>
+          <div class="text-gray-400 text-xs">\${inv.courier} · <code class="text-blue-300">\${inv.tracking_number}</code></div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="text-gray-400 text-xs">IMEI</div>
+          <code class="text-blue-300 text-xs">\${inv.imei || '—'}</code>
+        </div>
+      </div>
+
+      <!-- Financial Summary -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-gray-800 rounded-lg p-3 text-center"><div class="text-gray-400 text-xs">Sale Value</div><div class="font-bold text-white mt-1">\${fmt(inv.sale_value)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center"><div class="text-gray-400 text-xs">Claimed</div><div class="font-bold text-amber-400 mt-1">\${fmt(inv.claimed_amount)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center border \${inv.recovery_amount > 0 ? 'border-emerald-700/40' : 'border-gray-700'}"><div class="text-gray-400 text-xs">Recovered</div><div class="font-bold \${inv.recovery_amount > 0 ? 'text-emerald-400' : 'text-gray-500'} mt-1">\${fmt(inv.recovery_amount)}</div></div>
+      </div>
+
+      <!-- Dates -->
+      <div class="grid grid-cols-3 gap-3 text-xs">
+        <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-gray-400">Dispatched</div><div class="text-white mt-0.5">\${fmtDate(inv.dispatch_date)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-gray-400">Expected Delivery</div><div class="text-white mt-0.5">\${fmtDate(inv.expected_delivery_date)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-gray-400">Last Tracking</div><div class="text-amber-400 mt-0.5">\${inv.last_tracking_event.substring(0,30)}…</div></div>
+      </div>
+
+      \${inv.notes ? \`<div class="bg-gray-800 rounded-lg p-3"><div class="text-gray-400 text-xs mb-1">Case Notes</div><div class="text-gray-200 text-sm">\${inv.notes}</div></div>\` : ''}
+
+      <!-- Actions -->
+      <div class="flex flex-wrap gap-2">
+        \${inv.status === 'OPEN' ? \`<button onclick="alert('Evidence upload modal')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-upload mr-1"></i>Upload Evidence</button>\` : ''}
+        \${['OPEN','EVIDENCE_REQUIRED'].includes(inv.status) ? \`<button onclick="alert('Carrier portal submission recorded')" class="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-paper-plane mr-1"></i>Submit to Carrier</button>\` : ''}
+        \${inv.status === 'CLAIM_APPROVED' ? \`<button onclick="alert('Recovery amount posted to device P&L')" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-check mr-1"></i>Post Recovery to P&L</button>\` : ''}
+        \${inv.status === 'CLAIM_REJECTED' ? \`<button onclick="alert('Escalation logged')" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-level-up-alt mr-1"></i>Escalate</button>\` : ''}
+        <button onclick="alert('Loss confirmed — device status updated')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-minus-circle mr-1"></i>Mark as Loss</button>
+      </div>
+
+      <!-- Evidence -->
+      <div>
+        <div class="flex items-center justify-between mb-2"><h4 class="font-semibold text-white text-sm">Evidence (\${inv.evidence_items.length})</h4>
+          <button onclick="alert('Upload evidence')" class="text-xs text-blue-400 hover:text-blue-300">+ Add Evidence</button></div>
+        <div class="space-y-2">\${evidenceHtml}</div>
+      </div>
+
+      <!-- Timeline -->
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-3">Investigation Timeline</h4>
+        <div class="space-y-0">\${timelineHtml}</div>
+      </div>
+    </div>
+  \`);
+}
+
+function showNewInvestigationModal() {
+  openModal('Open Courier Investigation', \`
+    <div class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-gray-400 text-xs block mb-1">Order ID</label><input type="text" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="ORD-..."/></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Event Type</label>
+          <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+            <option>INR</option><option>DAMAGED</option><option>LOST_IN_TRANSIT</option><option>WRONG_ITEM</option><option>LATE_DELIVERY</option>
+          </select>
+        </div>
+        <div><label class="text-gray-400 text-xs block mb-1">Courier</label>
+          <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+            <option>DHL Express</option><option>FedEx International</option><option>Royal Mail Tracked 48</option><option>UPS</option><option>Evri</option>
+          </select>
+        </div>
+        <div><label class="text-gray-400 text-xs block mb-1">Tracking Number</label><input type="text" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Sale Value (£)</label><input type="number" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Claimed Amount (£)</label><input type="number" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
+      </div>
+      <div><label class="text-gray-400 text-xs block mb-1">Notes</label>
+        <textarea class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 h-20 resize-none text-sm"></textarea>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button onclick="closeModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm">Cancel</button>
+        <button onclick="alert('Investigation opened. Device custody event logged.'); closeModal();" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Open Investigation</button>
+      </div>
+    </div>
+  \`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: RETURNS & RMA
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderRMA() {
+  const [rmaList, stats] = await Promise.all([
+    axios.get(API + '/rma').then(r => r.data),
+    axios.get(API + '/rma/stats/summary').then(r => r.data),
+  ]);
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-5">
+
+      <!-- IMEI Mismatch ALERT -->
+      <div class="bg-red-900/40 border border-red-600/60 rounded-xl p-4 flex items-start gap-3">
+        <i class="fas fa-exclamation-triangle text-red-400 text-lg mt-0.5 flex-shrink-0"></i>
+        <div class="flex-1">
+          <div class="font-bold text-red-300">IMEI Mismatch Detected — Immediate Action Required</div>
+          <div class="text-xs text-red-300/80 mt-1">RMA-2026-007: Customer returned IMEI <code class="bg-red-900/40 px-1 rounded">354678901234999</code> — does NOT match sold IMEI <code class="bg-red-900/40 px-1 rounded">354678901234573</code>. All refund and replacement paths are FROZEN. Manager escalation mandatory.</div>
+        </div>
+        <button onclick="viewRMA('RMA-2026-007')" class="flex-shrink-0 text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg">View →</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${statCard('Open RMAs', stats.open, 'fa-undo', 'bg-amber-700', 'Active returns')}
+        \${statCard('IMEI Mismatches', stats.mismatches, 'fa-exclamation-triangle', 'bg-red-700', 'Frozen — escalate')}
+        \${statCard('Pending Return QC', stats.pendingQC, 'fa-microscope', 'bg-blue-700', 'Awaiting inspection')}
+        \${statCard('Total Refunded', fmt(stats.totalRefunded), 'fa-pound-sign', 'bg-purple-700', 'Approved refunds')}
+      </div>
+
+      <!-- Non-Negotiable Controls -->
+      <div class="bg-gray-900 border border-amber-700/30 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3"><i class="fas fa-shield-alt text-amber-400"></i><span class="font-semibold text-white text-sm">Return QC Non-Negotiable Controls</span></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-2 text-xs">
+          \${[
+            ['Return QC Mandatory', 'No refund or replacement issued without completed Return QC'],
+            ['IMEI Matching Required', 'Returned IMEI must exactly match the IMEI that was sold'],
+            ['IMEI Mismatch → Freeze', 'Immediate RETURN_MISMATCH event — all paths frozen until manager clears'],
+            ['Lock Check on Return', 'Any lock detected on returned device blocks resolution'],
+          ].map(([ctrl, desc]) => \`
+            <div class="flex items-start gap-2 bg-gray-800 rounded-lg p-2.5">
+              <i class="fas fa-check-circle text-amber-400 mt-0.5 flex-shrink-0"></i>
+              <div><div class="font-medium text-white">\${ctrl}</div><div class="text-gray-400">\${desc}</div></div>
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="border-b border-gray-800">
+        <div class="flex gap-6">
+          <button id="rtab-all" onclick="showRMATab('all')" class="pb-3 text-sm font-medium text-blue-400 tab-active">All RMAs (\${rmaList.length})</button>
+          <button id="rtab-pending-qc" onclick="showRMATab('pending-qc')" class="pb-3 text-sm font-medium text-gray-400 hover:text-white">Pending QC</button>
+          <button id="rtab-mismatch" onclick="showRMATab('mismatch')" class="pb-3 text-sm font-medium text-red-400 hover:text-red-300">⚠ IMEI Mismatches (1)</button>
+        </div>
+      </div>
+
+      <div id="rma-content">
+        \${renderRMATable(rmaList)}
+      </div>
+    </div>
+  \`;
+  window._allRMA = rmaList;
+}
+
+function rmaStatusBadge(status) {
+  const map = {
+    REQUESTED: ['bg-gray-500/20 text-gray-300 border-gray-500/30', 'fa-inbox'],
+    AUTHORISED: ['bg-blue-500/20 text-blue-400 border-blue-500/30', 'fa-check'],
+    IN_TRANSIT_BACK: ['bg-cyan-500/20 text-cyan-400 border-cyan-500/30', 'fa-truck'],
+    RECEIVED: ['bg-indigo-500/20 text-indigo-400 border-indigo-500/30', 'fa-box-open'],
+    RETURN_QC_PENDING: ['bg-amber-500/20 text-amber-400 border-amber-500/30', 'fa-microscope'],
+    QC_PASS_NO_FAULT: ['bg-emerald-500/20 text-emerald-400 border-emerald-500/30', 'fa-check-circle'],
+    QC_FAIL_FAULT_CONFIRMED: ['bg-red-500/20 text-red-400 border-red-500/30', 'fa-times-circle'],
+    IMEI_MISMATCH: ['bg-red-700/40 text-red-300 border-red-600/60 animate-pulse', 'fa-exclamation-triangle'],
+    REFUND_APPROVED: ['bg-purple-500/20 text-purple-400 border-purple-500/30', 'fa-pound-sign'],
+    REPLACEMENT_DISPATCHED: ['bg-cyan-500/20 text-cyan-400 border-cyan-500/30', 'fa-shipping-fast'],
+    CLOSED: ['bg-gray-700/30 text-gray-400 border-gray-700/50', 'fa-archive'],
+    CLOSED_NO_ACTION: ['bg-gray-700/30 text-gray-400 border-gray-700/50', 'fa-ban'],
+  };
+  const [cls, icon] = map[status] || ['bg-gray-500/20 text-gray-400 border-gray-500/30', 'fa-question'];
+  return \`<span class="status-badge inline-flex items-center gap-1 border rounded-full px-2.5 py-0.5 \${cls}"><i class="fas \${icon} text-xs"></i> \${status.replace(/_/g,' ')}</span>\`;
+}
+
+function renderRMATable(rmaList) {
+  return table(
+    ['RMA ID', 'Order', 'Customer', 'Reason', 'IMEI Match', 'Sale Value', 'Refund', 'Resolution', 'Status', 'Actions'],
+    rmaList.map(r => [
+      \`<span class="font-mono text-xs text-blue-300">\${r.rma_id}</span>\`,
+      \`<span class="font-mono text-xs text-gray-300">\${r.order_id}</span>\`,
+      \`<div class="text-sm text-white">\${r.customer_name}</div><div class="text-xs text-gray-400">\${r.marketplace}</div>\`,
+      \`<div class="text-xs text-gray-300 max-w-[120px] truncate" title="\${r.return_reason}">\${r.return_reason.substring(0,40)}…</div>\`,
+      r.imei_match === null
+        ? '<span class="text-xs text-gray-500">—</span>'
+        : r.imei_match
+          ? '<span class="text-xs text-emerald-400 font-bold"><i class="fas fa-check mr-1"></i>MATCH</span>'
+          : '<span class="text-xs text-red-400 font-bold animate-pulse"><i class="fas fa-times mr-1"></i>MISMATCH</span>',
+      fmt(r.sale_value),
+      r.refund_amount > 0 ? \`<span class="text-amber-400">\${fmt(r.refund_amount)}</span>\` : '<span class="text-gray-600">—</span>',
+      \`<span class="text-xs bg-gray-700 px-2 py-0.5 rounded">\${r.resolution}</span>\`,
+      rmaStatusBadge(r.status),
+      \`<button onclick="viewRMA('\${r.rma_id}')" class="text-xs text-blue-400 bg-blue-900/20 px-2.5 py-1 rounded-lg hover:bg-blue-900/40">View</button>\`,
+    ])
+  );
+}
+
+function showRMATab(tab) {
+  document.querySelectorAll('[id^="rtab-"]').forEach(el => { el.classList.remove('text-blue-400', 'tab-active'); el.classList.add('text-gray-400'); });
+  document.getElementById('rtab-' + tab).classList.add('text-blue-400', 'tab-active');
+  document.getElementById('rtab-' + tab).classList.remove('text-gray-400');
+  const all = window._allRMA || [];
+  let filtered = all;
+  if (tab === 'pending-qc') filtered = all.filter(r => r.status === 'RETURN_QC_PENDING');
+  if (tab === 'mismatch') filtered = all.filter(r => r.imei_match === false);
+  document.getElementById('rma-content').innerHTML = renderRMATable(filtered);
+}
+
+async function viewRMA(id) {
+  const r = await axios.get(API + '/rma/' + id).then(r => r.data);
+  const isMismatch = r.imei_match === false;
+
+  const timelineHtml = r.timeline.map(ev => \`
+    <div class="flex gap-3">
+      <div class="flex flex-col items-center">
+        <div class="w-7 h-7 rounded-full \${ev.system_generated ? 'bg-blue-900/50 border border-blue-700/50' : 'bg-gray-700 border border-gray-600'} flex items-center justify-center flex-shrink-0">
+          <i class="fas \${ev.system_generated ? 'fa-robot text-blue-400' : 'fa-user text-gray-300'} text-xs"></i>
+        </div>
+        <div class="flex-1 w-px bg-gray-700 mt-1"></div>
+      </div>
+      <div class="pb-4 flex-1">
+        <div class="text-xs text-gray-400">\${new Date(ev.timestamp).toLocaleString('en-GB')} · \${ev.actor}</div>
+        <div class="text-sm \${ev.action.includes('MISMATCH') ? 'text-red-300 font-semibold' : 'text-gray-200'} mt-0.5">\${ev.action}</div>
+      </div>
+    </div>
+  \`).join('');
+
+  openModal(\`RMA \${r.rma_id} — \${r.customer_name}\`, \`
+    <div class="space-y-4 text-sm">
+
+      \${isMismatch ? \`
+        <div class="bg-red-900/40 border border-red-600/60 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2"><i class="fas fa-exclamation-triangle text-red-400 text-lg"></i><div class="font-bold text-red-300 text-base">IMEI MISMATCH — ALL PATHS FROZEN</div></div>
+          <div class="grid grid-cols-2 gap-3 text-xs mt-2">
+            <div class="bg-red-900/30 rounded-lg p-2.5"><div class="text-gray-400">IMEI Sold</div><code class="text-emerald-300 font-bold">\${r.imei_sold}</code></div>
+            <div class="bg-red-900/30 rounded-lg p-2.5"><div class="text-gray-400">IMEI Returned</div><code class="text-red-300 font-bold">\${r.imei_returned}</code></div>
+          </div>
+          <div class="text-xs text-red-300/70 mt-2">A RETURN_MISMATCH event has been created. No refund, replacement, or restock can proceed until a Manager raises MISMATCH_CLEARED. This may indicate device swap fraud.</div>
+          <div class="mt-3 flex gap-2">
+            <button onclick="alert('Manager escalation notification sent')" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex-1">Escalate to Manager</button>
+            <button onclick="alert('Police report template generated')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg flex-1">Generate Police Report</button>
+          </div>
+        </div>
+      \` : \`
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">Status</span><div class="mt-1">\${rmaStatusBadge(r.status)}</div></div>
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">Resolution</span><div class="mt-1 text-white">\${r.resolution}</div></div>
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">IMEI Sold</span><code class="block text-emerald-300 text-xs mt-0.5">\${r.imei_sold}</code></div>
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">IMEI Returned</span><code class="block \${r.imei_match === true ? 'text-emerald-300' : 'text-red-300'} text-xs mt-0.5">\${r.imei_returned || '—'}</code></div>
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">Sale Value</span><div class="mt-1 font-bold text-white">\${fmt(r.sale_value)}</div></div>
+          <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400 text-xs">Refund Amount</span><div class="mt-1 font-bold text-amber-400">\${fmt(r.refund_amount)}</div></div>
+        </div>
+      \`}
+
+      <div class="bg-gray-800 rounded-lg p-3">
+        <div class="text-gray-400 text-xs mb-1">Return Reason</div>
+        <div class="text-gray-200">\${r.return_reason}</div>
+      </div>
+
+      \${r.status === 'RETURN_QC_PENDING' && !isMismatch ? \`
+        <div class="bg-amber-900/20 border border-amber-700/30 rounded-xl p-4">
+          <div class="font-semibold text-amber-300 mb-2 flex items-center gap-2"><i class="fas fa-microscope"></i>Return QC Required</div>
+          <div class="text-xs text-amber-300/70 mb-3">No refund or replacement can be issued until Return QC is completed. Lock check is mandatory.</div>
+          <button onclick="alert('Return QC form opened'); closeModal();" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium w-full">Begin Return QC</button>
+        </div>
+      \` : ''}
+
+      \${r.status === 'QC_FAIL_FAULT_CONFIRMED' ? \`
+        <div class="bg-gray-800 rounded-xl p-4">
+          <div class="font-semibold text-white mb-3">Resolution Actions</div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="alert('Full refund approved')" class="bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm">Approve Full Refund</button>
+            <button onclick="alert('Partial refund modal')" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm">Partial Refund</button>
+            <button onclick="alert('Replacement dispatched')" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">Send Replacement</button>
+            <button onclick="alert('Device scrapped')" class="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg text-sm">Scrap Device</button>
+          </div>
+        </div>
+      \` : ''}
+
+      <!-- Timeline -->
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-3">Return Timeline</h4>
+        <div class="space-y-0">\${timelineHtml}</div>
+      </div>
+    </div>
+  \`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: PROFITABILITY & UNIT P&L
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderProfitability() {
+  const [units, summary] = await Promise.all([
+    axios.get(API + '/pnl/units').then(r => r.data),
+    axios.get(API + '/pnl/summary').then(r => r.data),
+  ]);
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-5">
+      <!-- KPIs -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${statCard('Units Sold', summary.total_units_sold, 'fa-mobile-alt', 'bg-blue-700', summary.period)}
+        \${statCard('Gross Revenue', fmt(summary.total_gross_revenue), 'fa-pound-sign', 'bg-indigo-700', 'Before VAT')}
+        \${statCard('Net Profit', fmt(summary.total_net_profit), 'fa-chart-line', summary.total_net_profit >= 0 ? 'bg-emerald-700' : 'bg-red-700', 'After all costs')}
+        \${statCard('Avg Margin', summary.avg_margin_percent + '%', 'fa-percentage', summary.avg_margin_percent >= 20 ? 'bg-emerald-700' : 'bg-amber-700', 'Net margin')}
+      </div>
+
+      <!-- P&L Formula -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Unit P&L Formula</div>
+        <div class="font-mono text-xs text-gray-300 leading-6">
+          Net Profit = (Gross Sale − VAT) − (Purchase Cost + OPR Uplift + Marketplace Fee + Fintech Fee + Shipping + Repair Cost) + Recovery Amount
+        </div>
+      </div>
+
+      <!-- Charts + Breakdown -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <!-- By Marketplace -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-store text-blue-400"></i> By Marketplace</h3>
+          <div class="space-y-3">
+            \${summary.by_marketplace.map(m => \`
+              <div class="bg-gray-800 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="font-medium text-white">\${m.marketplace}</div>
+                  <div class="flex items-center gap-3 text-xs">
+                    <span class="text-gray-400">\${m.units} units</span>
+                    <span class="font-bold \${m.margin_percent >= 20 ? 'text-emerald-400' : m.margin_percent >= 0 ? 'text-amber-400' : 'text-red-400'}">\${m.margin_percent}% margin</span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-xs text-center">
+                  <div><div class="text-gray-400">Revenue</div><div class="font-bold text-white">\${fmt(m.revenue)}</div></div>
+                  <div><div class="text-gray-400">Profit</div><div class="font-bold \${m.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}">\${fmt(m.profit)}</div></div>
+                  <div><div class="text-gray-400">Avg Fee</div><div class="font-bold text-amber-400">\${m.avg_fee_percent}%</div></div>
+                </div>
+                <div class="mt-2 w-full bg-gray-700 rounded-full h-1.5">
+                  <div class="h-1.5 rounded-full \${m.margin_percent >= 20 ? 'bg-emerald-500' : m.margin_percent >= 0 ? 'bg-amber-500' : 'bg-red-500'} progress-bar" style="width:\${Math.max(0, Math.min(100, m.margin_percent))}%"></div>
+                </div>
+              </div>
+            \`).join('')}
+          </div>
+        </div>
+
+        <!-- By Make -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-mobile-alt text-purple-400"></i> By Manufacturer</h3>
+          <canvas id="makeChart" height="180"></canvas>
+          <div class="space-y-3 mt-4">
+            \${summary.by_make.map(m => \`
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                  <span class="text-sm text-gray-300">\${m.make}</span>
+                  <span class="text-xs text-gray-500">\${m.units} units</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-sm font-bold text-white">\${fmt(m.profit)}</span>
+                  <span class="text-xs text-gray-400 ml-2">\${m.margin_percent}%</span>
+                </div>
+              </div>
+            \`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Insights -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-emerald-900/20 border border-emerald-700/30 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Best Margin Device</div>
+          <div class="font-semibold text-emerald-300">\${summary.best_margin_device}</div>
+        </div>
+        <div class="bg-red-900/20 border border-red-700/30 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Lowest Margin Device</div>
+          <div class="font-semibold text-red-300">\${summary.worst_margin_device}</div>
+        </div>
+      </div>
+
+      <!-- Unit P&L Table -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-table text-blue-400"></i> Unit P&L Breakdown</h3>
+          <div class="flex items-center gap-2">
+            <select id="pnl-status-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterPnL()">
+              <option value="">All Units</option><option value="SOLD">Sold</option><option value="IN_STOCK">In Stock</option><option value="IN_OPR">In OPR</option>
+            </select>
+          </div>
+        </div>
+        <div id="pnl-table">
+          \${renderPnLTable(units)}
+        </div>
+      </div>
+    </div>
+  \`;
+  window._allPnL = units;
+  window._pnlSummary = summary;
+  setTimeout(() => renderMakeChart(summary.by_make), 100);
+}
+
+function renderMakeChart(byMake) {
+  const ctx = document.getElementById('makeChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: byMake.map(m => m.make),
+      datasets: [
+        { label: 'Revenue', data: byMake.map(m => m.revenue), backgroundColor: '#3b82f666', borderColor: '#3b82f6', borderWidth: 1.5 },
+        { label: 'Profit', data: byMake.map(m => m.profit), backgroundColor: '#10b98166', borderColor: '#10b981', borderWidth: 1.5 },
+      ]
+    },
+    options: {
+      responsive: true, plugins: { legend: { labels: { color: '#9ca3af', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+        y: { ticks: { color: '#6b7280', callback: v => '£' + v }, grid: { color: '#1f2937' } }
+      }
+    }
+  });
+}
+
+function renderPnLTable(units) {
+  return table(
+    ['IMEI', 'Device', 'Grade', 'Marketplace', 'Gross Sale', 'Net Rev', 'Total Costs', 'Recovery', 'Net Profit', 'Margin', 'Status'],
+    units.map(u => {
+      const profitCls = u.net_profit > 0 ? 'text-emerald-400' : u.net_profit < 0 ? 'text-red-400' : 'text-gray-500';
+      const marginCls = u.margin_percent >= 20 ? 'text-emerald-400' : u.margin_percent >= 0 ? 'text-amber-400' : 'text-red-400';
+      return [
+        \`<code class="text-xs text-blue-300">\${u.imei.substring(0, 12)}…</code>\`,
+        \`<div class="text-sm text-white">\${u.make} \${u.model}</div><div class="text-xs text-gray-400">\${u.storage}</div>\`,
+        gradeBadge(u.grade),
+        u.marketplace ? \`<span class="text-xs bg-gray-700 px-2 py-0.5 rounded">\${u.marketplace}</span>\` : '<span class="text-gray-600 text-xs">—</span>',
+        u.gross_sale > 0 ? fmt(u.gross_sale) : '<span class="text-gray-600">—</span>',
+        u.net_revenue > 0 ? fmt(u.net_revenue) : '<span class="text-gray-600">—</span>',
+        \`<span class="text-amber-400">\${fmt(u.total_costs)}</span>\`,
+        u.recovery_amount > 0 ? \`<span class="text-cyan-400 font-bold">\${fmt(u.recovery_amount)}</span>\` : '<span class="text-gray-600">—</span>',
+        \`<span class="font-bold \${profitCls}">\${fmt(u.net_profit)}</span>\`,
+        u.status === 'SOLD' ? \`<span class="font-bold \${marginCls}">\${u.margin_percent}%</span>\` : '<span class="text-gray-600">—</span>',
+        \`<span class="text-xs px-2 py-0.5 rounded-full \${u.status === 'SOLD' ? 'bg-emerald-500/20 text-emerald-400' : u.status === 'IN_OPR' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}">\${u.status}</span>\`,
+      ];
+    })
+  );
+}
+
+function filterPnL() {
+  const status = document.getElementById('pnl-status-filter')?.value || '';
+  const filtered = (window._allPnL || []).filter(u => !status || u.status === status);
+  document.getElementById('pnl-table').innerHTML = renderPnLTable(filtered);
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  navigateTo('dashboard');
 });
 
 // Close modal on overlay click

@@ -4,7 +4,8 @@
 
 import type {
   Device, PurchaseBatch, OPRBatch, Order, VatRecord,
-  VatPeriod, FintechAdvance, Supplier, QCRecord, SupportTicket, DashboardStats
+  VatPeriod, FintechAdvance, Supplier, QCRecord, SupportTicket, DashboardStats,
+  CourierInvestigation, RMARecord, UnitPnL, ProfitabilitySummary,
 } from '../types/index.js';
 
 const COMPANY_ID = 'REFURBIQ_DEMO';
@@ -101,5 +102,345 @@ export function getDashboardStats(): DashboardStats {
     vat_liability: vatPeriods.find(p => p.status === 'OPEN')?.box_5 ?? 0,
     total_revenue_mtd: orders.filter(o => o.order_date.startsWith('2026-04')).reduce((s, o) => s + o.total_sale_value, 0),
     avg_margin_percent: 22.4,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 2 DATA — Courier Investigations, RMA, Profitability
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Courier Investigations ────────────────────────────────────────────────────
+export const courierInvestigations: CourierInvestigation[] = [
+  {
+    investigation_id: 'INV-2026-001',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-BM-44221',
+    ticket_id: 'TKT001',
+    device_id: 'DEV002',
+    imei: '354678901234568',
+    event_type: 'INR',
+    courier: 'DHL Express',
+    tracking_number: 'DHL-GB-778899',
+    dispatch_date: '2026-04-01',
+    expected_delivery_date: '2026-04-03',
+    last_tracking_event: 'Delivered — Signed by: NEIGHBOUR',
+    last_tracking_date: '2026-04-03',
+    customer_name: 'Julien Moreau',
+    customer_email: 'julien.moreau@email.fr',
+    marketplace: 'Back Market',
+    sale_value: 520,
+    claimed_amount: 520,
+    recovery_amount: 0,
+    status: 'UNDER_INVESTIGATION',
+    carrier_reference: 'DHL-CLAIM-2026-88321',
+    opened_at: '2026-04-05',
+    resolved_at: undefined,
+    assigned_to: 'support@refurbiq.co.uk',
+    notes: 'Customer states parcel not received. Tracking shows "delivered to neighbour". P2P delivery screenshot required from DHL.',
+    evidence_items: [
+      { evidence_id: 'EV001', type: 'PROOF_OF_DISPATCH', filename: 'dispatch_label_DEV002.pdf', uploaded_at: '2026-04-05', uploaded_by: 'ops@refurbiq.co.uk' },
+      { evidence_id: 'EV002', type: 'TRACKING_SCREENSHOT', filename: 'dhl_tracking_778899.png', uploaded_at: '2026-04-06', uploaded_by: 'support@refurbiq.co.uk' },
+    ],
+    timeline: [
+      { event_id: 'TE001', timestamp: '2026-04-05T09:15:00Z', actor: 'system', action: 'INR investigation opened from ticket TKT001', system_generated: true },
+      { event_id: 'TE002', timestamp: '2026-04-05T10:30:00Z', actor: 'support@refurbiq.co.uk', action: 'Proof of dispatch uploaded', system_generated: false },
+      { event_id: 'TE003', timestamp: '2026-04-06T11:00:00Z', actor: 'support@refurbiq.co.uk', action: 'DHL claim submitted. Reference: DHL-CLAIM-2026-88321', system_generated: false },
+      { event_id: 'TE004', timestamp: '2026-04-07T14:22:00Z', actor: 'system', action: 'Carrier acknowledged claim. Investigation period: 10 business days', system_generated: true },
+    ],
+  },
+  {
+    investigation_id: 'INV-2026-002',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-BM-44350',
+    ticket_id: undefined,
+    device_id: 'DEV005',
+    imei: '354678901234571',
+    event_type: 'DAMAGED',
+    courier: 'FedEx International',
+    tracking_number: 'FDX-INT-556677',
+    dispatch_date: '2026-04-04',
+    expected_delivery_date: '2026-04-07',
+    last_tracking_event: 'Delivered — Recipient: WEBER K',
+    last_tracking_date: '2026-04-07',
+    customer_name: 'Klaus Weber',
+    customer_email: 'k.weber@email.de',
+    marketplace: 'Back Market',
+    sale_value: 680,
+    claimed_amount: 680,
+    recovery_amount: 680,
+    status: 'CLAIM_APPROVED',
+    carrier_reference: 'FDX-DMG-2026-44501',
+    opened_at: '2026-04-08',
+    resolved_at: '2026-04-09',
+    assigned_to: 'support@refurbiq.co.uk',
+    notes: 'Customer reported damaged screen on arrival. Photo evidence provided. FedEx accepted liability — full replacement value approved.',
+    evidence_items: [
+      { evidence_id: 'EV003', type: 'PROOF_OF_DISPATCH', filename: 'dispatch_DEV005.pdf', uploaded_at: '2026-04-08', uploaded_by: 'ops@refurbiq.co.uk' },
+      { evidence_id: 'EV004', type: 'PHOTO', filename: 'damage_photo_weber.jpg', uploaded_at: '2026-04-08', uploaded_by: 'support@refurbiq.co.uk' },
+      { evidence_id: 'EV005', type: 'CARRIER_RESPONSE', filename: 'fedex_claim_approval.pdf', uploaded_at: '2026-04-09', uploaded_by: 'support@refurbiq.co.uk' },
+    ],
+    timeline: [
+      { event_id: 'TE005', timestamp: '2026-04-08T08:00:00Z', actor: 'support@refurbiq.co.uk', action: 'Damage claim opened. Customer photo evidence attached.', system_generated: false },
+      { event_id: 'TE006', timestamp: '2026-04-08T10:30:00Z', actor: 'support@refurbiq.co.uk', action: 'FedEx damage claim submitted. Ref: FDX-DMG-2026-44501', system_generated: false },
+      { event_id: 'TE007', timestamp: '2026-04-09T15:00:00Z', actor: 'system', action: 'Carrier approved claim — £680.00 recovery confirmed', system_generated: true },
+      { event_id: 'TE008', timestamp: '2026-04-09T15:05:00Z', actor: 'system', action: 'Status → CLAIM_APPROVED. Recovery £680.00 logged to device P&L.', system_generated: true },
+    ],
+  },
+  {
+    investigation_id: 'INV-2026-003',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-AMZ-88800',
+    ticket_id: 'TKT002',
+    device_id: 'DEV001',
+    imei: '354678901234567',
+    event_type: 'LATE_DELIVERY',
+    courier: 'Royal Mail Tracked 48',
+    tracking_number: 'RM-GB-99887766',
+    dispatch_date: '2026-04-03',
+    expected_delivery_date: '2026-04-05',
+    last_tracking_event: 'Awaiting collection at depot',
+    last_tracking_date: '2026-04-06',
+    customer_name: 'Mark Davies',
+    customer_email: 'mark.davies@email.co.uk',
+    marketplace: 'Amazon',
+    sale_value: 450,
+    claimed_amount: 0,
+    recovery_amount: 0,
+    status: 'OPEN',
+    carrier_reference: undefined,
+    opened_at: '2026-04-08',
+    resolved_at: undefined,
+    assigned_to: undefined,
+    notes: 'Parcel stuck at depot for 3 days. Customer threatening negative feedback.',
+    evidence_items: [],
+    timeline: [
+      { event_id: 'TE009', timestamp: '2026-04-08T11:00:00Z', actor: 'system', action: 'Late delivery investigation opened automatically from ticket TKT002', system_generated: true },
+    ],
+  },
+];
+
+// ── RMA Records ───────────────────────────────────────────────────────────────
+export const rmaRecords: RMARecord[] = [
+  {
+    rma_id: 'RMA-2026-009',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-EBY-11209',
+    ticket_id: 'TKT003',
+    device_id: 'DEV006',
+    imei_sold: '354678901234572',
+    imei_returned: '354678901234572',
+    imei_match: true,
+    customer_name: 'Emma Wilson',
+    customer_email: 'emma.wilson@email.co.uk',
+    marketplace: 'eBay',
+    return_reason: 'Screen cracked on arrival — packaging appeared undamaged. Item not as described.',
+    return_category: 'DAMAGED_IN_TRANSIT',
+    sale_value: 285,
+    refund_amount: 285,
+    status: 'RETURN_QC_PENDING',
+    resolution: 'PENDING',
+    authorised_by: 'manager@refurbiq.co.uk',
+    authorised_at: '2026-04-07',
+    received_at: '2026-04-09',
+    qc_id: undefined,
+    return_label_tracking: 'RM-RTN-2026-44321',
+    marketplace_case_ref: 'EBY-CASE-20260406-77812',
+    opened_at: '2026-04-06',
+    closed_at: undefined,
+    notes: 'Return authorised by manager. Device received, awaiting Return QC. IMEI verified on receipt.',
+    timeline: [
+      { event_id: 'RE001', timestamp: '2026-04-06T10:00:00Z', actor: 'system', action: 'RMA requested by customer via eBay case EBY-CASE-20260406-77812', system_generated: true },
+      { event_id: 'RE002', timestamp: '2026-04-07T09:30:00Z', actor: 'manager@refurbiq.co.uk', action: 'Return authorised. RM return label issued: RM-RTN-2026-44321', system_generated: false },
+      { event_id: 'RE003', timestamp: '2026-04-09T11:15:00Z', actor: 'ops@refurbiq.co.uk', action: 'Device received at warehouse. IMEI scanned: 354678901234572 — MATCH confirmed.', system_generated: false },
+      { event_id: 'RE004', timestamp: '2026-04-09T11:16:00Z', actor: 'system', action: 'Status → RETURN_QC_PENDING. Device queued for Return QC inspection.', system_generated: true },
+    ],
+  },
+  {
+    rma_id: 'RMA-2026-007',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-AMZ-88754',
+    ticket_id: undefined,
+    device_id: 'DEV007',
+    imei_sold: '354678901234573',
+    imei_returned: '354678901234999',
+    imei_match: false,
+    customer_name: 'Sarah Thompson',
+    customer_email: 'sarah.thompson@email.co.uk',
+    marketplace: 'Amazon',
+    return_reason: 'Change of mind — no longer required',
+    return_category: 'CHANGE_OF_MIND',
+    sale_value: 6200,
+    refund_amount: 0,
+    status: 'IMEI_MISMATCH',
+    resolution: 'PENDING',
+    authorised_by: 'support@refurbiq.co.uk',
+    authorised_at: '2026-04-03',
+    received_at: '2026-04-08',
+    qc_id: undefined,
+    return_label_tracking: 'UPS-RTN-2026-55890',
+    marketplace_case_ref: 'AMZ-CASE-20260402-33210',
+    opened_at: '2026-04-02',
+    closed_at: undefined,
+    notes: 'CRITICAL: IMEI MISMATCH DETECTED. Sold IMEI: 354678901234573. Returned IMEI: 354678901234999. All refund/replacement paths FROZEN. Manager escalation required.',
+    timeline: [
+      { event_id: 'RE005', timestamp: '2026-04-02T14:00:00Z', actor: 'system', action: 'Return requested via Amazon case AMZ-CASE-20260402-33210', system_generated: true },
+      { event_id: 'RE006', timestamp: '2026-04-03T09:00:00Z', actor: 'support@refurbiq.co.uk', action: 'Return authorised for change of mind. Label issued.', system_generated: false },
+      { event_id: 'RE007', timestamp: '2026-04-08T10:30:00Z', actor: 'ops@refurbiq.co.uk', action: 'Device received. IMEI scanned: 354678901234999', system_generated: false },
+      { event_id: 'RE008', timestamp: '2026-04-08T10:31:00Z', actor: 'system', action: '⚠ IMEI MISMATCH DETECTED — Sold: 354678901234573 | Returned: 354678901234999. RETURN_MISMATCH event created. All resolution paths FROZEN. Manager escalation mandatory.', system_generated: true },
+    ],
+  },
+  {
+    rma_id: 'RMA-2026-005',
+    company_id: COMPANY_ID,
+    order_id: 'ORD-AMZ-88800',
+    ticket_id: 'TKT002',
+    device_id: 'DEV001',
+    imei_sold: '354678901234567',
+    imei_returned: '354678901234567',
+    imei_match: true,
+    customer_name: 'Mark Davies',
+    customer_email: 'mark.davies@email.co.uk',
+    marketplace: 'Amazon',
+    return_reason: 'Battery draining unusually fast — not as advertised',
+    return_category: 'NOT_AS_DESCRIBED',
+    sale_value: 450,
+    refund_amount: 450,
+    status: 'REFUND_APPROVED',
+    resolution: 'FULL_REFUND',
+    authorised_by: 'manager@refurbiq.co.uk',
+    authorised_at: '2026-04-04',
+    received_at: '2026-04-07',
+    qc_id: 'QC003',
+    return_label_tracking: 'DHL-RTN-2026-11223',
+    marketplace_case_ref: 'AMZ-CASE-20260403-44512',
+    opened_at: '2026-04-03',
+    closed_at: '2026-04-09',
+    notes: 'Return QC confirmed battery health at 61% — below advertised spec. Full refund approved. Device to be relisted at Grade C or scrapped.',
+    timeline: [
+      { event_id: 'RE009', timestamp: '2026-04-03T08:00:00Z', actor: 'system', action: 'Return requested via Amazon case', system_generated: true },
+      { event_id: 'RE010', timestamp: '2026-04-04T10:00:00Z', actor: 'manager@refurbiq.co.uk', action: 'Return authorised. Fault category: battery health.', system_generated: false },
+      { event_id: 'RE011', timestamp: '2026-04-07T12:00:00Z', actor: 'ops@refurbiq.co.uk', action: 'Device received. IMEI confirmed match. Queued for Return QC.', system_generated: false },
+      { event_id: 'RE012', timestamp: '2026-04-08T09:30:00Z', actor: 'ops@refurbiq.co.uk', action: 'Return QC complete — QC003. Battery 61%, below Grade A threshold. Fault CONFIRMED.', system_generated: false },
+      { event_id: 'RE013', timestamp: '2026-04-09T10:00:00Z', actor: 'manager@refurbiq.co.uk', action: 'Full refund of £450 approved and processed via Amazon.', system_generated: false },
+    ],
+  },
+];
+
+// ── Unit P&L Records ──────────────────────────────────────────────────────────
+export const unitPnLRecords: UnitPnL[] = [
+  {
+    device_id: 'DEV002', imei: '354678901234568', make: 'Apple', model: 'iPhone 14 Pro', storage: '256GB', grade: 'A',
+    order_id: 'ORD-BM-44221', marketplace: 'Back Market', sale_date: '2026-04-01',
+    gross_sale: 520, vat_on_sale: 0, net_revenue: 520,
+    purchase_cost: 320, opr_uplift: 0, marketplace_fee: 26, fintech_fee: 8.11, shipping_cost: 8.50, repair_cost: 0,
+    total_costs: 362.61, recovery_amount: 0,
+    net_profit: 157.39, margin_percent: 30.3, status: 'SOLD',
+  },
+  {
+    device_id: 'DEV007', imei: '354678901234573', make: 'Google', model: 'Pixel 8 Pro', storage: '256GB', grade: 'A',
+    order_id: 'ORD-AMZ-88754', marketplace: 'Amazon', sale_date: '2026-04-02',
+    gross_sale: 480, vat_on_sale: 0, net_revenue: 480,
+    purchase_cost: 290, opr_uplift: 0, marketplace_fee: 67.2, fintech_fee: 0, shipping_cost: 6.95, repair_cost: 0,
+    total_costs: 364.15, recovery_amount: 0,
+    net_profit: 115.85, margin_percent: 24.1, status: 'SOLD',
+  },
+  {
+    device_id: 'DEV001', imei: '354678901234567', make: 'Apple', model: 'iPhone 14 Pro', storage: '256GB', grade: 'A',
+    order_id: 'ORD-AMZ-88800', marketplace: 'Amazon', sale_date: '2026-04-03',
+    gross_sale: 450, vat_on_sale: 75, net_revenue: 375,
+    purchase_cost: 320, opr_uplift: 25, marketplace_fee: 45, fintech_fee: 7.02, shipping_cost: 6.95, repair_cost: 0,
+    total_costs: 403.97, recovery_amount: 0,
+    net_profit: -28.97, margin_percent: -7.7, status: 'SOLD',
+  },
+  {
+    device_id: 'DEV005', imei: '354678901234571', make: 'Apple', model: 'iPhone 15', storage: '128GB', grade: 'A',
+    order_id: 'ORD-BM-44350', marketplace: 'Back Market', sale_date: '2026-04-04',
+    gross_sale: 680, vat_on_sale: 0, net_revenue: 680,
+    purchase_cost: 380, opr_uplift: 0, marketplace_fee: 34, fintech_fee: 0, shipping_cost: 9.50, repair_cost: 0,
+    total_costs: 423.50, recovery_amount: 680,
+    net_profit: 936.50, margin_percent: 137.7, status: 'SOLD',
+  },
+  {
+    device_id: 'DEV006', imei: '354678901234572', make: 'Samsung', model: 'Galaxy A54', storage: '256GB', grade: 'C',
+    order_id: 'ORD-EBY-11209', marketplace: 'eBay', sale_date: '2026-04-05',
+    gross_sale: 285, vat_on_sale: 13.75, net_revenue: 271.25,
+    purchase_cost: 85, opr_uplift: 0, marketplace_fee: 28.5, fintech_fee: 0, shipping_cost: 4.50, repair_cost: 0,
+    total_costs: 118, recovery_amount: 0,
+    net_profit: 153.25, margin_percent: 56.5, status: 'SOLD',
+  },
+  {
+    device_id: 'DEV003', imei: '354678901234569', make: 'Samsung', model: 'Galaxy S24 Ultra', storage: '512GB', grade: 'B',
+    order_id: undefined, marketplace: undefined, sale_date: undefined,
+    gross_sale: 0, vat_on_sale: 0, net_revenue: 0,
+    purchase_cost: 280, opr_uplift: 0, marketplace_fee: 0, fintech_fee: 0, shipping_cost: 0, repair_cost: 0,
+    total_costs: 280, recovery_amount: 0,
+    net_profit: -280, margin_percent: 0, status: 'IN_STOCK',
+  },
+  {
+    device_id: 'DEV004', imei: '354678901234570', make: 'Apple', model: 'iPhone 13', storage: '128GB', grade: 'A',
+    order_id: undefined, marketplace: undefined, sale_date: undefined,
+    gross_sale: 0, vat_on_sale: 0, net_revenue: 0,
+    purchase_cost: 195, opr_uplift: 25, marketplace_fee: 0, fintech_fee: 0, shipping_cost: 0, repair_cost: 0,
+    total_costs: 220, recovery_amount: 0,
+    net_profit: -220, margin_percent: 0, status: 'IN_OPR',
+  },
+];
+
+export function getProfitabilitySummary(): ProfitabilitySummary {
+  const sold = unitPnLRecords.filter(u => u.status === 'SOLD');
+  const totalGross = sold.reduce((s, u) => s + u.gross_sale, 0);
+  const totalVat = sold.reduce((s, u) => s + u.vat_on_sale, 0);
+  const totalNet = sold.reduce((s, u) => s + u.net_revenue, 0);
+  const totalCosts = sold.reduce((s, u) => s + u.total_costs, 0);
+  const totalProfit = sold.reduce((s, u) => s + u.net_profit, 0);
+  const avgMargin = totalNet > 0 ? (totalProfit / totalNet) * 100 : 0;
+
+  const byMktMap: Record<string, { units: number; revenue: number; profit: number; fees: number }> = {};
+  const byMakeMap: Record<string, { units: number; revenue: number; profit: number }> = {};
+
+  for (const u of sold) {
+    const mk = u.marketplace || 'Unknown';
+    if (!byMktMap[mk]) byMktMap[mk] = { units: 0, revenue: 0, profit: 0, fees: 0 };
+    byMktMap[mk].units++;
+    byMktMap[mk].revenue += u.net_revenue;
+    byMktMap[mk].profit += u.net_profit;
+    byMktMap[mk].fees += u.marketplace_fee;
+
+    const make = u.make;
+    if (!byMakeMap[make]) byMakeMap[make] = { units: 0, revenue: 0, profit: 0 };
+    byMakeMap[make].units++;
+    byMakeMap[make].revenue += u.net_revenue;
+    byMakeMap[make].profit += u.net_profit;
+  }
+
+  const bestUnit = sold.reduce((a, b) => a.margin_percent > b.margin_percent ? a : b, sold[0]);
+  const worstUnit = sold.reduce((a, b) => a.margin_percent < b.margin_percent ? a : b, sold[0]);
+
+  return {
+    period: 'April 2026 (MTD)',
+    total_units_sold: sold.length,
+    total_gross_revenue: Math.round(totalGross * 100) / 100,
+    total_vat_collected: Math.round(totalVat * 100) / 100,
+    total_net_revenue: Math.round(totalNet * 100) / 100,
+    total_costs: Math.round(totalCosts * 100) / 100,
+    total_net_profit: Math.round(totalProfit * 100) / 100,
+    avg_margin_percent: Math.round(avgMargin * 10) / 10,
+    best_margin_device: bestUnit ? `${bestUnit.make} ${bestUnit.model} (${bestUnit.margin_percent}%)` : '—',
+    worst_margin_device: worstUnit ? `${worstUnit.make} ${worstUnit.model} (${worstUnit.margin_percent}%)` : '—',
+    by_marketplace: Object.entries(byMktMap).map(([marketplace, d]) => ({
+      marketplace,
+      units: d.units,
+      revenue: Math.round(d.revenue * 100) / 100,
+      profit: Math.round(d.profit * 100) / 100,
+      margin_percent: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 10000) / 100 : 0,
+      avg_fee_percent: d.revenue > 0 ? Math.round((d.fees / d.revenue) * 10000) / 100 : 0,
+    })),
+    by_make: Object.entries(byMakeMap).map(([make, d]) => ({
+      make,
+      units: d.units,
+      revenue: Math.round(d.revenue * 100) / 100,
+      profit: Math.round(d.profit * 100) / 100,
+      margin_percent: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 10000) / 100 : 0,
+    })),
   };
 }

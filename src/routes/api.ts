@@ -8,6 +8,7 @@ import {
   suppliers, purchaseBatches, devices, oprBatches,
   orders, vatRecords, vatPeriods, fintechAdvances,
   qcRecords, supportTickets, getDashboardStats,
+  courierInvestigations, rmaRecords, unitPnLRecords, getProfitabilitySummary,
 } from '../lib/data-store.js';
 import {
   VAT_CODE_DEFINITIONS, evaluateDRCThreshold, calculateVat,
@@ -144,4 +145,56 @@ api.get('/tickets', (c) => {
 api.get('/tickets/:id', (c) => {
   const t = supportTickets.find(x => x.ticket_id === c.req.param('id'));
   return t ? c.json(t) : c.notFound();
+});
+
+// ── Courier Investigations ─────────────────────────────────────────────────────
+api.get('/investigations', (c) => {
+  const { status, event_type } = c.req.query();
+  let result = [...courierInvestigations];
+  if (status) result = result.filter(i => i.status === status);
+  if (event_type) result = result.filter(i => i.event_type === event_type);
+  return c.json(result);
+});
+api.get('/investigations/:id', (c) => {
+  const inv = courierInvestigations.find(x => x.investigation_id === c.req.param('id'));
+  return inv ? c.json(inv) : c.notFound();
+});
+api.get('/investigations/stats/summary', (c) => {
+  const open = courierInvestigations.filter(i => !['RESOLVED_LOSS','RESOLVED_FOUND','CLOSED'].includes(i.status)).length;
+  const totalClaimed = courierInvestigations.reduce((s, i) => s + i.claimed_amount, 0);
+  const totalRecovered = courierInvestigations.reduce((s, i) => s + i.recovery_amount, 0);
+  const recoveryRate = totalClaimed > 0 ? Math.round((totalRecovered / totalClaimed) * 100) : 0;
+  return c.json({ open, total: courierInvestigations.length, totalClaimed, totalRecovered, recoveryRate });
+});
+
+// ── RMA Records ───────────────────────────────────────────────────────────────
+api.get('/rma', (c) => {
+  const { status } = c.req.query();
+  let result = [...rmaRecords];
+  if (status) result = result.filter(r => r.status === status);
+  return c.json(result);
+});
+api.get('/rma/:id', (c) => {
+  const r = rmaRecords.find(x => x.rma_id === c.req.param('id'));
+  return r ? c.json(r) : c.notFound();
+});
+api.get('/rma/stats/summary', (c) => {
+  const open = rmaRecords.filter(r => !['CLOSED','CLOSED_NO_ACTION'].includes(r.status)).length;
+  const mismatches = rmaRecords.filter(r => r.imei_match === false).length;
+  const totalRefunded = rmaRecords.filter(r => r.status === 'REFUND_APPROVED').reduce((s, r) => s + r.refund_amount, 0);
+  const pendingQC = rmaRecords.filter(r => r.status === 'RETURN_QC_PENDING').length;
+  return c.json({ open, mismatches, totalRefunded, pendingQC, total: rmaRecords.length });
+});
+
+// ── Profitability / Unit P&L ─────────────────────────────────────────────────
+api.get('/pnl/units', (c) => {
+  const { status } = c.req.query();
+  let result = [...unitPnLRecords];
+  if (status) result = result.filter(u => u.status === status);
+  return c.json(result);
+});
+api.get('/pnl/summary', (c) => c.json(getProfitabilitySummary()));
+api.get('/pnl/units/:device_id', (c) => {
+  const u = unitPnLRecords.find(x => x.device_id === c.req.param('device_id'));
+  return u ? c.json(u) : c.notFound();
 });
