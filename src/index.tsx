@@ -3502,14 +3502,14 @@ async function submitMTDReturn(returnId) {
   try {
     const res = await axios.post(API + '/mtd-returns/' + returnId + '/submit');
     const d = res.data;
-    alert(\`✅ VAT return accepted by HMRC!\n\nReceipt ID: \${d.receipt_id}\nProcessing Date: \${d.processing_date}\n\nPage will refresh.\`);
+    alert('VAT return accepted by HMRC! Receipt ID: ' + d.receipt_id + ' | Processing Date: ' + d.processing_date + '. Page will refresh.');
     renderMTD();
-  } catch (err: any) {
+  } catch (err) {
     const e = err.response?.data;
     if (e?.errors?.length) {
-      alert('❌ Submission failed — Validation errors:\n• ' + e.errors.join('\n• '));
+      alert('Submission failed - Validation errors: ' + e.errors.join('; '));
     } else {
-      alert('❌ Submission failed: ' + (e?.error || 'Unknown error'));
+      alert('Submission failed: ' + (e?.error || 'Unknown error'));
     }
   }
 }
@@ -3732,7 +3732,7 @@ function renderScanner() {
 }
 
 async function scanLookup() {
-  const val = (document.getElementById('scanner-input') as HTMLInputElement)?.value.trim();
+  const val = document.getElementById('scanner-input')?.value.trim();
   if (!val) return;
   const resultEl = document.getElementById('scanner-result');
   resultEl.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-400"><div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>Looking up...</div>';
@@ -3859,7 +3859,7 @@ function showIntakeForm(imei = '', make = '', model = '') {
       <div id="intake-status"></div>
       <div class="flex gap-2 pt-2">
         <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded-lg text-sm font-medium"><i class="fas fa-plus-circle mr-1"></i>Create Intake Record</button>
-        <button type="button" onclick="document.getElementById('intake-form').innerHTML='<div class=text-center\\ py-8\\ text-gray-500><i class=fas\\ fa-barcode\\ text-4xl\\ mb-3\\ text-gray-700></i><div class=text-sm>Form cancelled</div></div>'" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg">Cancel</button>
+        <button type="button" onclick="cancelIntake()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg">Cancel</button>
       </div>
     </form>
   \`;
@@ -3867,12 +3867,17 @@ function showIntakeForm(imei = '', make = '', model = '') {
 
 function showManualIntake() { showIntakeForm(); }
 
+function cancelIntake() {
+  const el = document.getElementById('intake-form');
+  if (el) el.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fas fa-barcode text-4xl mb-3 text-gray-700"></i><div class="text-sm">Form cancelled — scan an IMEI to start</div></div>';
+}
+
 async function submitIntake(e) {
   e.preventDefault();
   const form = e.target;
   const statusEl = document.getElementById('intake-status');
   const data = Object.fromEntries(new FormData(form));
-  data.unit_cost = parseFloat(data.unit_cost as string) || 0;
+  data.unit_cost = parseFloat(data.unit_cost) || 0;
   statusEl.innerHTML = '<div class="flex items-center gap-2 text-xs text-gray-400"><div class="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>Creating record...</div>';
   try {
     const res = await axios.post(API + '/scanner/intake', data);
@@ -3884,7 +3889,7 @@ async function submitIntake(e) {
       </div>
     \`;
     form.reset();
-  } catch (err: any) {
+  } catch (err) {
     const msg = err.response?.data?.message || err.response?.data?.error || 'Intake failed';
     const code = err.response?.data?.error;
     statusEl.innerHTML = \`<div class="bg-red-900/20 border border-red-700/40 rounded-lg p-3 text-xs text-red-300"><i class="fas fa-times-circle mr-1"></i>\${code === 'DUPLICATE_IMEI' ? '🛑 DUPLICATE IMEI BLOCKED — ' : ''}\${msg}</div>\`;
@@ -4038,17 +4043,17 @@ async function syncMarketplace(id) {
     const d = res.data;
     alert(\`✅ Sync complete — \${d.orders_synced} orders pulled in \${d.duration_ms}ms. Page will refresh.\`);
     renderMarketplace();
-  } catch (err: any) {
+  } catch (err) {
     alert('Sync failed: ' + (err.response?.data?.error || 'Unknown error'));
   }
 }
 
 async function reconnectMarketplace(id) {
-  const mkt = (window as any)._integrations?.find(m => m.integration_id === id);
-  if (!confirm(\`Re-authenticate \${mkt?.marketplace_name || id}? This will simulate a successful OAuth reconnection.\`)) return;
+  const mkt = window._integrations?.find(m => m.integration_id === id);
+  if (!confirm('Re-authenticate ' + (mkt?.marketplace_name || id) + '? This will simulate a successful OAuth reconnection.')) return;
   try {
     const res = await axios.post(API + '/marketplace/' + id + '/reconnect');
-    alert(\`✅ \${mkt?.marketplace_name || id} reconnected — status: \${res.data.status}. Page will refresh.\`);
+    alert('\u2705 ' + (mkt?.marketplace_name || id) + ' reconnected \u2014 status: ' + res.data.status + '. Page will refresh.');
     renderMarketplace();
   } catch (err) {
     alert('Reconnection failed');
@@ -4056,7 +4061,7 @@ async function reconnectMarketplace(id) {
 }
 
 function openMktDetail(id) {
-  const m = (window as any)._integrations?.find(x => x.integration_id === id);
+  const m = window._integrations?.find(x => x.integration_id === id);
   if (!m) return;
   openModal(\`Integration Detail: \${m.marketplace_name}\`, \`
     <div class="space-y-4 text-sm">
@@ -4112,7 +4117,7 @@ async function renderTenants() {
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-layer-group text-blue-400"></i> Plan Distribution</h3>
           <div class="space-y-2">
-            \${Object.entries(summary.plan_breakdown).map(([plan, count]: [string, any]) => \`
+            \${Object.entries(summary.plan_breakdown).map(([plan, count]) => \`
               <div class="flex items-center justify-between">
                 <span class="\${planColor[plan] || 'text-gray-300'} text-sm">\${plan}</span>
                 <div class="flex items-center gap-3">
@@ -4128,7 +4133,7 @@ async function renderTenants() {
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-clock text-amber-400"></i> Status Overview</h3>
           <div class="space-y-2">
-            \${[['ACTIVE', summary.active_tenants, 'emerald'], ['TRIAL', summary.trial_tenants, 'blue'], ['SUSPENDED', summary.suspended_tenants, 'red']].map(([status, count, color]: [string, any, string]) => \`
+            \${[['ACTIVE', summary.active_tenants, 'emerald'], ['TRIAL', summary.trial_tenants, 'blue'], ['SUSPENDED', summary.suspended_tenants, 'red']].map(([status, count, color]) => \`
               <div class="flex items-center justify-between bg-gray-800/50 rounded-lg p-3">
                 <span class="text-\${color}-400 text-sm font-medium">\${status}</span>
                 <div class="flex items-center gap-2">
@@ -4204,16 +4209,16 @@ function renderTenantRows(list) {
 }
 
 function filterTenants() {
-  const status = (document.getElementById('tenant-status-filter') as HTMLSelectElement)?.value;
-  const plan = (document.getElementById('tenant-plan-filter') as HTMLSelectElement)?.value;
-  let list = (window as any)._tenants || [];
+  const status = document.getElementById('tenant-status-filter')?.value;
+  const plan = document.getElementById('tenant-plan-filter')?.value;
+  let list = window._tenants || [];
   if (status) list = list.filter(t => t.status === status);
   if (plan) list = list.filter(t => t.plan === plan);
   document.getElementById('tenant-table').innerHTML = renderTenantRows(list);
 }
 
 function openTenantDetail(id) {
-  const t = (window as any)._tenants?.find(x => x.tenant_id === id);
+  const t = window._tenants?.find(x => x.tenant_id === id);
   if (!t) return;
   const planColor = { STARTER: 'text-gray-400', PROFESSIONAL: 'text-blue-400', ENTERPRISE: 'text-purple-400', WHITE_LABEL: 'text-amber-400' };
   const statusColor = { ACTIVE: 'text-emerald-400', TRIAL: 'text-blue-400', SUSPENDED: 'text-red-400', CANCELLED: 'text-gray-400', PENDING: 'text-amber-400' };
