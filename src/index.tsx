@@ -58,9 +58,10 @@ function getIndexHTML(): string {
     @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
     .progress-bar { transition: width 0.5s ease; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #1e2a3a; }
-    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--sb-track); }
+    ::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); }
     .vat-code-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; }
     .opr-urgent { background: linear-gradient(135deg, #ef4444, #dc2626); }
     .opr-warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
@@ -68,176 +69,283 @@ function getIndexHTML(): string {
     .modal-overlay { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
     .ring-glow { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
     input, select, textarea { color-scheme: dark; }
+
+    /* ── CSS variables — dark mode (default) ── */
+    :root {
+      --bg-body:       #030712;
+      --bg-sidebar:    #111827;
+      --bg-sidebar-h:  #1f2937;
+      --bg-main:       #030712;
+      --bg-card:       #111827;
+      --bg-card-h:     #1f2937;
+      --bg-topbar:     #111827;
+      --bg-input:      #1f2937;
+      --border:        #1f2937;
+      --border-light:  #374151;
+      --text-primary:  #f9fafb;
+      --text-secondary:#9ca3af;
+      --text-muted:    #6b7280;
+      --text-nav:      #d1d5db;
+      --sb-track:      #1e2a3a;
+      --sb-thumb:      #374151;
+      --sb-thumb-hover:#4b5563;
+      --nav-active-bg: #1e3a5f;
+      --nav-active-text:#60a5fa;
+    }
+    /* ── light mode overrides ── */
+    body.light-mode {
+      --bg-body:       #f1f5f9;
+      --bg-sidebar:    #ffffff;
+      --bg-sidebar-h:  #f1f5f9;
+      --bg-main:       #f1f5f9;
+      --bg-card:       #ffffff;
+      --bg-card-h:     #f8fafc;
+      --bg-topbar:     #ffffff;
+      --bg-input:      #f8fafc;
+      --border:        #e2e8f0;
+      --border-light:  #cbd5e1;
+      --text-primary:  #0f172a;
+      --text-secondary:#475569;
+      --text-muted:    #94a3b8;
+      --text-nav:      #334155;
+      --sb-track:      #e2e8f0;
+      --sb-thumb:      #94a3b8;
+      --sb-thumb-hover:#64748b;
+      --nav-active-bg: #dbeafe;
+      --nav-active-text:#1d4ed8;
+    }
+    body.light-mode { color-scheme: light; }
+    body.light-mode input, body.light-mode select, body.light-mode textarea { color-scheme: light; }
+
+    /* ── apply variables ── */
+    body                 { background-color: var(--bg-body); color: var(--text-primary); }
+    #sidebar             { background-color: var(--bg-sidebar); border-color: var(--border); }
+    #topbar              { background-color: var(--bg-topbar); border-color: var(--border); }
+    .card-lm             { background-color: var(--bg-card);   border-color: var(--border); }
+    .sidebar-section-label { color: var(--text-muted); }
+
+    /* ── sidebar collapse ── */
+    #sidebar { transition: width 0.25s cubic-bezier(0.4,0,0.2,1); overflow: hidden; }
+    #sidebar.collapsed { width: 4rem !important; }
+    #sidebar.collapsed .sidebar-label,
+    #sidebar.collapsed .sidebar-badge,
+    #sidebar.collapsed .sidebar-section-label,
+    #sidebar.collapsed #tenant-block,
+    #sidebar.collapsed #sidebar-footer-text { display: none !important; }
+    #sidebar.collapsed .sidebar-item { justify-content: center; padding-left: 0; padding-right: 0; }
+    #sidebar.collapsed .sidebar-item i { margin: 0; width: auto; }
+    #sidebar.collapsed #logo-text { display: none !important; }
+    #sidebar.collapsed #collapse-btn i { transform: rotate(180deg); }
+    main.collapsed-main { margin-left: 4rem !important; }
+    #sidebar.collapsed #sidebar-logo { justify-content: center; }
+    #sidebar.collapsed #sidebar-footer { justify-content: center; padding: 0.75rem 0; }
+    #sidebar.collapsed #sidebar-footer > * { display: none; }
+    #sidebar.collapsed #sidebar-footer #collapse-btn { display: flex !important; }
+    /* tooltip on collapsed icons */
+    #sidebar.collapsed .sidebar-item { position: relative; }
+    #sidebar.collapsed .sidebar-item::after { content: attr(data-tooltip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #1e293b; color: #f1f5f9; font-size: 0.7rem; white-space: nowrap; padding: 4px 8px; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; border: 1px solid #334155; }
+    #sidebar.collapsed .sidebar-item:hover::after { opacity: 1; }
+    body.light-mode #sidebar.collapsed .sidebar-item::after { background: #fff; color: #0f172a; border-color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen flex">
+<body class="min-h-screen flex" id="app-body">
 
 <!-- ═══════════════════════════════════════════════════════ SIDEBAR -->
-<aside id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col min-h-screen fixed top-0 left-0 z-40">
+<aside id="sidebar" class="w-64 flex flex-col h-screen fixed top-0 left-0 z-40 border-r">
   <!-- Logo -->
-  <div class="p-4 border-b border-gray-800">
+  <div class="px-4 py-3 border-b flex items-center justify-between flex-shrink-0" id="sidebar-logo" style="border-color:var(--border)">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg">
+      <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg">
         <i class="fas fa-mobile-alt text-white text-sm"></i>
       </div>
-      <div>
-        <div class="font-bold text-white text-base tracking-tight">RefurbIQ</div>
-        <div class="text-xs text-gray-400">Electronics ERP</div>
+      <div id="logo-text">
+        <div class="font-bold text-base tracking-tight" style="color:var(--text-primary)">RefurbIQ</div>
+        <div class="text-xs" style="color:var(--text-muted)">Electronics ERP</div>
       </div>
     </div>
+    <button id="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar"
+      class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-gray-700 flex-shrink-0"
+      style="color:var(--text-muted)">
+      <i class="fas fa-chevron-left text-xs transition-transform duration-250"></i>
+    </button>
   </div>
 
   <!-- Tenant Badge -->
-  <div class="px-4 py-2 border-b border-gray-800">
-    <div class="flex items-center gap-2 bg-blue-900/30 rounded-lg px-3 py-2">
-      <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">R</div>
-      <div>
-        <div class="text-xs font-semibold text-blue-300">RefurbIQ Demo Ltd</div>
-        <div class="text-xs text-gray-500">VAT: GB369979995</div>
+  <div class="px-3 py-2 border-b flex-shrink-0" id="tenant-block" style="border-color:var(--border)">
+    <div class="flex items-center gap-2 rounded-lg px-3 py-2" style="background:rgba(59,130,246,0.12)">
+      <div class="w-6 h-6 flex-shrink-0 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">R</div>
+      <div class="sidebar-label">
+        <div class="text-xs font-semibold text-blue-400">RefurbIQ Demo Ltd</div>
+        <div class="text-xs" style="color:var(--text-muted)">VAT: GB369979995</div>
       </div>
     </div>
   </div>
 
   <!-- Navigation -->
-  <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-1">Core Operations</div>
+  <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto" style="scrollbar-width:thin">
+    <div class="text-xs font-semibold uppercase tracking-wider px-2 py-1 mt-1 sidebar-section-label">Core Operations</div>
     
-    <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-tachometer-alt w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Dashboard</span>
+    <button onclick="navigateTo('dashboard')" id="nav-dashboard" data-tooltip="Dashboard" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-tachometer-alt w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Dashboard</span>
     </button>
 
-    <button onclick="navigateTo('inventory')" id="nav-inventory" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-boxes w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Inventory & Goods-In</span>
-      <span class="ml-auto bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">8</span>
+    <button onclick="navigateTo('inventory')" id="nav-inventory" data-tooltip="Inventory &amp; Goods-In" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-boxes w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Inventory &amp; Goods-In</span>
+      <span class="sidebar-badge ml-auto bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">8</span>
     </button>
 
-    <button onclick="navigateTo('qc')" id="nav-qc" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-microscope w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Quality Control</span>
-      <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">2</span>
+    <button onclick="navigateTo('qc')" id="nav-qc" data-tooltip="Quality Control" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-microscope w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Quality Control</span>
+      <span class="sidebar-badge ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">2</span>
     </button>
 
-    <button onclick="navigateTo('opr')" id="nav-opr" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-globe-europe w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>OPR Engine</span>
-      <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">!</span>
+    <button onclick="navigateTo('opr')" id="nav-opr" data-tooltip="OPR Engine" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-globe-europe w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">OPR Engine</span>
+      <span class="sidebar-badge ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">!</span>
     </button>
 
-    <button onclick="navigateTo('orders')" id="nav-orders" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-shopping-cart w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Orders</span>
+    <button onclick="navigateTo('orders')" id="nav-orders" data-tooltip="Orders" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-shopping-cart w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Orders</span>
     </button>
 
-    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Finance & Compliance</div>
+    <div class="text-xs font-semibold uppercase tracking-wider px-2 py-1 mt-3 sidebar-section-label">Finance &amp; Compliance</div>
 
-    <button onclick="navigateTo('vat')" id="nav-vat" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-landmark w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>VAT Engine</span>
+    <button onclick="navigateTo('vat')" id="nav-vat" data-tooltip="VAT Engine" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-landmark w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">VAT Engine</span>
     </button>
 
-    <button onclick="navigateTo('fintech')" id="nav-fintech" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-coins w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Fintech Advances</span>
+    <button onclick="navigateTo('fintech')" id="nav-fintech" data-tooltip="Fintech Advances" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-coins w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Fintech Advances</span>
     </button>
 
-    <button onclick="navigateTo('suppliers')" id="nav-suppliers" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-truck w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Suppliers & Batches</span>
+    <button onclick="navigateTo('suppliers')" id="nav-suppliers" data-tooltip="Suppliers &amp; Batches" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-truck w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Suppliers &amp; Batches</span>
     </button>
 
-    <button onclick="navigateTo('scanner')" id="nav-scanner" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-barcode w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>IMEI Scanner</span>
+    <button onclick="navigateTo('scanner')" id="nav-scanner" data-tooltip="IMEI Scanner" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-barcode w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">IMEI Scanner</span>
     </button>
 
-    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Customer & Risk</div>
+    <div class="text-xs font-semibold uppercase tracking-wider px-2 py-1 mt-3 sidebar-section-label">Customer &amp; Risk</div>
 
-    <button onclick="navigateTo('support')" id="nav-support" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-headset w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Support & Tickets</span>
-      <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">3</span>
+    <button onclick="navigateTo('support')" id="nav-support" data-tooltip="Support &amp; Tickets" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-headset w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Support &amp; Tickets</span>
+      <span class="sidebar-badge ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">3</span>
     </button>
 
-    <button onclick="navigateTo('courier')" id="nav-courier" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-truck-fast w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Courier & INR</span>
-      <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">2</span>
+    <button onclick="navigateTo('courier')" id="nav-courier" data-tooltip="Courier &amp; INR" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-truck-fast w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Courier &amp; INR</span>
+      <span class="sidebar-badge ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">2</span>
     </button>
 
-    <button onclick="navigateTo('rma')" id="nav-rma" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-undo w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Returns & RMA</span>
-      <span class="ml-auto bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">!</span>
+    <button onclick="navigateTo('rma')" id="nav-rma" data-tooltip="Returns &amp; RMA" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-undo w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Returns &amp; RMA</span>
+      <span class="sidebar-badge ml-auto bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">!</span>
     </button>
 
-    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Analytics</div>
+    <div class="text-xs font-semibold uppercase tracking-wider px-2 py-1 mt-3 sidebar-section-label">Analytics</div>
 
-    <button onclick="navigateTo('profitability')" id="nav-profitability" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-chart-line w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Profitability & P&L</span>
+    <button onclick="navigateTo('profitability')" id="nav-profitability" data-tooltip="Profitability &amp; P&amp;L" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-chart-line w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Profitability &amp; P&amp;L</span>
     </button>
 
-    <button onclick="navigateTo('repairs')" id="nav-repairs" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-tools w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Repairs & Refurbishment</span>
-      <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">4</span>
+    <button onclick="navigateTo('repairs')" id="nav-repairs" data-tooltip="Repairs &amp; Refurbishment" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-tools w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Repairs &amp; Refurbishment</span>
+      <span class="sidebar-badge ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">4</span>
     </button>
 
-    <button onclick="navigateTo('supplier-analytics')" id="nav-supplier-analytics" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-chart-pie w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Supplier Analytics</span>
+    <button onclick="navigateTo('supplier-analytics')" id="nav-supplier-analytics" data-tooltip="Supplier Analytics" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-chart-pie w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Supplier Analytics</span>
     </button>
 
-    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Compliance & System</div>
+    <div class="text-xs font-semibold uppercase tracking-wider px-2 py-1 mt-3 sidebar-section-label">Compliance &amp; System</div>
 
-    <button onclick="navigateTo('mtd')" id="nav-mtd" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-paper-plane w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>HMRC MTD Returns</span>
-      <span class="ml-auto bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">1</span>
+    <button onclick="navigateTo('mtd')" id="nav-mtd" data-tooltip="HMRC MTD Returns" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-paper-plane w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">HMRC MTD Returns</span>
+      <span class="sidebar-badge ml-auto bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">1</span>
     </button>
 
-    <button onclick="navigateTo('audit')" id="nav-audit" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-history w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Audit Log</span>
+    <button onclick="navigateTo('audit')" id="nav-audit" data-tooltip="Audit Log" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-history w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Audit Log</span>
     </button>
 
-    <button onclick="navigateTo('marketplace')" id="nav-marketplace" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-store w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Marketplace Hub</span>
-      <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold" id="mkt-badge">!</span>
+    <button onclick="navigateTo('marketplace')" id="nav-marketplace" data-tooltip="Marketplace Hub" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-store w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Marketplace Hub</span>
+      <span class="sidebar-badge ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold" id="mkt-badge">!</span>
     </button>
 
-    <button onclick="navigateTo('tenants')" id="nav-tenants" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-users-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Tenant Management</span>
-      <span class="ml-auto bg-indigo-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">5</span>
+    <button onclick="navigateTo('tenants')" id="nav-tenants" data-tooltip="Tenant Management" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-users-cog w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Tenant Management</span>
+      <span class="sidebar-badge ml-auto bg-indigo-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">5</span>
     </button>
 
-    <button onclick="navigateTo('admin')" id="nav-admin" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
-      <i class="fas fa-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
-      <span>Admin & Settings</span>
+    <button onclick="navigateTo('admin')" id="nav-admin" data-tooltip="Admin &amp; Settings" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors" style="color:var(--text-nav)">
+      <i class="fas fa-cog w-4 flex-shrink-0" style="color:var(--text-muted)"></i>
+      <span class="sidebar-label">Admin &amp; Settings</span>
     </button>
   </nav>
 
   <!-- Footer -->
-  <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
-    <div class="flex items-center gap-2">
-      <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-      <span>System Operational</span>
+  <div class="flex-shrink-0 border-t px-3 py-3" id="sidebar-footer" style="border-color:var(--border)">
+    <!-- Status + version -->
+    <div id="sidebar-footer-text" class="mb-2">
+      <div class="flex items-center gap-2 text-xs" style="color:var(--text-muted)">
+        <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0"></div>
+        <span class="sidebar-label">System Operational</span>
+      </div>
+      <div class="text-xs mt-1 sidebar-label" style="color:var(--text-muted)">v2.4.0 · Phase 4 Build</div>
     </div>
-    <div class="mt-1">v2.4.0 · Phase 4 Build</div>
+    <!-- Theme + Collapse controls -->
+    <div class="flex items-center gap-2">
+      <!-- Light/Dark toggle -->
+      <button id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode"
+        class="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors"
+        style="background:var(--bg-sidebar-h); color:var(--text-secondary); border:1px solid var(--border-light)">
+        <i id="theme-icon" class="fas fa-moon text-xs"></i>
+        <span id="theme-label" class="sidebar-label">Dark</span>
+      </button>
+      <!-- Collapse (shown in footer only when expanded) -->
+      <button onclick="toggleSidebar()" title="Collapse"
+        class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+        style="background:var(--bg-sidebar-h); color:var(--text-muted); border:1px solid var(--border-light)">
+        <i class="fas fa-chevron-left text-xs"></i>
+      </button>
+    </div>
   </div>
 </aside>
 
 <!-- ═══════════════════════════════════════════════════════ MAIN CONTENT -->
-<main class="ml-64 flex-1 flex flex-col min-h-screen">
+<main id="main-content" class="ml-64 flex-1 flex flex-col min-h-screen" style="transition:margin-left 0.25s cubic-bezier(0.4,0,0.2,1)">
   <!-- Top Bar -->
-  <header class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+  <header id="topbar" class="border-b px-6 py-3 flex items-center justify-between sticky top-0 z-30">
     <div class="flex items-center gap-3">
-      <span id="page-title" class="text-lg font-semibold text-white">Dashboard</span>
-      <span id="page-subtitle" class="text-sm text-gray-400"></span>
+      <!-- Hamburger (shown when sidebar collapsed) -->
+      <button id="hamburger-btn" onclick="toggleSidebar()" title="Expand sidebar"
+        class="hidden w-8 h-8 rounded-lg items-center justify-center transition-colors mr-1"
+        style="color:var(--text-muted); background:var(--bg-card); border:1px solid var(--border)">
+        <i class="fas fa-bars text-sm"></i>
+      </button>
+      <span id="page-title" class="text-lg font-semibold" style="color:var(--text-primary)">Dashboard</span>
+      <span id="page-subtitle" class="text-sm" style="color:var(--text-secondary)"></span>
     </div>
     <div class="flex items-center gap-4">
       <!-- Search -->
@@ -246,21 +354,22 @@ function getIndexHTML(): string {
         <input type="text" placeholder="Search IMEI, order, ticket..." class="bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-72" />
       </div>
       <!-- Notifications -->
-      <button class="relative text-gray-400 hover:text-white">
+      <button class="relative" style="color:var(--text-secondary)">
         <i class="fas fa-bell text-sm"></i>
         <span class="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 text-xs flex items-center justify-center text-white font-bold">4</span>
       </button>
       <!-- User -->
-      <div class="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-700">
-        <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">A</div>
-        <span class="text-sm text-gray-300">Admin</span>
-        <i class="fas fa-chevron-down text-xs text-gray-500"></i>
+      <div class="flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer transition-colors"
+        style="background:var(--bg-card); border:1px solid var(--border)">
+        <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">A</div>
+        <span class="text-sm" style="color:var(--text-secondary)">Admin</span>
+        <i class="fas fa-chevron-down text-xs" style="color:var(--text-muted)"></i>
       </div>
     </div>
   </header>
 
   <!-- Page Content -->
-  <div id="page-content" class="flex-1 p-6 overflow-auto"></div>
+  <div id="page-content" class="flex-1 p-6 overflow-auto" style="background:var(--bg-main)"></div>
 </main>
 
 <!-- ═══════════════════════════════════════════════════════ MODAL -->
@@ -4294,8 +4403,78 @@ async function reactivateTenant(id) {
   } catch (err) { alert('Failed to reactivate tenant'); }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SIDEBAR: COLLAPSE / EXPAND
+// ══════════════════════════════════════════════════════════════════════════════
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main    = document.getElementById('main-content');
+  const ham     = document.getElementById('hamburger-btn');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  if (collapsed) {
+    main.style.marginLeft = '4rem';
+    ham.style.display = 'flex';
+  } else {
+    main.style.marginLeft = '16rem';
+    ham.style.display = 'none';
+  }
+  localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// THEME: LIGHT / DARK
+// ══════════════════════════════════════════════════════════════════════════════
+
+function applyTheme(light) {
+  const body      = document.getElementById('app-body');
+  const icon      = document.getElementById('theme-icon');
+  const label     = document.getElementById('theme-label');
+  const searchInput = document.querySelector('input[type="text"]');
+  if (light) {
+    body.classList.add('light-mode');
+    if (icon)  { icon.className  = 'fas fa-sun text-xs'; }
+    if (label) { label.textContent = 'Light'; }
+    if (searchInput) searchInput.style.colorScheme = 'light';
+  } else {
+    body.classList.remove('light-mode');
+    if (icon)  { icon.className  = 'fas fa-moon text-xs'; }
+    if (label) { label.textContent = 'Dark'; }
+    if (searchInput) searchInput.style.colorScheme = 'dark';
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.getElementById('app-body').classList.contains('light-mode');
+  const newLight = !isLight;
+  applyTheme(newLight);
+  localStorage.setItem('theme', newLight ? 'light' : 'dark');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT: restore persisted preferences
+// ══════════════════════════════════════════════════════════════════════════════
+
+function initUI() {
+  // Theme
+  const savedTheme = localStorage.getItem('theme');
+  applyTheme(savedTheme === 'light');
+
+  // Sidebar collapse
+  const savedCollapse = localStorage.getItem('sidebarCollapsed');
+  if (savedCollapse === '1') {
+    const sidebar = document.getElementById('sidebar');
+    const main    = document.getElementById('main-content');
+    const ham     = document.getElementById('hamburger-btn');
+    sidebar.classList.add('collapsed');
+    main.style.marginLeft = '4rem';
+    if (ham) ham.style.display = 'flex';
+  }
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
+  initUI();
 });
 
 // Close modal on overlay click
