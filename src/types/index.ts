@@ -654,35 +654,170 @@ export interface MTDVatReturn {
   vat_period_id: string;
   period_start: string;
   period_end: string;
-  period_key: string;          // HMRC period key e.g. "24AA"
+  period_key: string;
   status: MTDSubmissionStatus;
-  // HMRC 9 boxes
-  box_1: number;   // VAT due on sales
-  box_2: number;   // VAT due on EC acquisitions
-  box_3: number;   // Total VAT due (box1 + box2)
-  box_4: number;   // VAT reclaimed
-  box_5: number;   // Net VAT (box3 - box4, if +ve = payable)
-  box_6: number;   // Total value of sales exc. VAT
-  box_7: number;   // Total value of purchases exc. VAT
-  box_8: number;   // Total value of EC supplies
-  box_9: number;   // Total value of EC acquisitions
-  // Audit trail
-  prepared_by?: string;
-  prepared_at?: string;
-  reviewed_by?: string;
-  reviewed_at?: string;
-  approved_by?: string;
-  approved_at?: string;
+  box_1: number; box_2: number; box_3: number; box_4: number; box_5: number;
+  box_6: number; box_7: number; box_8: number; box_9: number;
+  prepared_by?: string; prepared_at?: string;
+  reviewed_by?: string; reviewed_at?: string;
+  approved_by?: string; approved_at?: string;
   submitted_at?: string;
-  hmrc_receipt_id?: string;
-  hmrc_correlation_id?: string;
-  hmrc_processing_date?: string;
-  // Validation
+  hmrc_receipt_id?: string; hmrc_correlation_id?: string; hmrc_processing_date?: string;
   validation_errors: string[];
   validation_warnings: string[];
-  // Finalisation
   finalised: boolean;
   payment_due_date?: string;
   payment_amount?: number;
   payment_reference?: string;
+}
+
+// ── SaaS Tenant Management ────────────────────────────────────────────────────
+
+export type TenantPlan = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | 'TRIAL';
+export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED' | 'TRIAL' | 'ONBOARDING';
+
+export interface TenantUser {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: 'ADMIN' | 'MANAGER' | 'WAREHOUSE' | 'FINANCE' | 'SUPPORT' | 'READ_ONLY';
+  last_login?: string;
+  is_active: boolean;
+  mfa_enabled: boolean;
+}
+
+export interface TenantUsage {
+  devices_total: number;
+  devices_limit: number;
+  orders_mtd: number;
+  api_calls_today: number;
+  api_calls_limit_daily: number;
+  storage_mb: number;
+  storage_limit_mb: number;
+  active_users: number;
+  users_limit: number;
+}
+
+export interface Tenant {
+  tenant_id: string;
+  company_name: string;
+  company_number: string;
+  vat_number: string;
+  contact_email: string;
+  contact_phone?: string;
+  address_line1: string;
+  address_city: string;
+  address_postcode: string;
+  country: string;
+  plan: TenantPlan;
+  status: TenantStatus;
+  subdomain: string;
+  created_at: string;
+  trial_ends_at?: string;
+  subscription_start?: string;
+  subscription_renewal?: string;
+  monthly_fee: number;
+  currency: string;
+  billing_email: string;
+  stripe_customer_id?: string;
+  users: TenantUser[];
+  usage: TenantUsage;
+  features: Record<string, boolean>;
+  hmrc_vrn?: string;
+  hmrc_mtd_authorised: boolean;
+  xero_connected: boolean;
+  quickbooks_connected: boolean;
+  notes?: string;
+}
+
+export interface TenantSaaSSummary {
+  total_tenants: number;
+  active_tenants: number;
+  trial_tenants: number;
+  suspended_tenants: number;
+  mrr: number;
+  arr: number;
+  avg_devices_per_tenant: number;
+  plan_breakdown: Record<TenantPlan, number>;
+}
+
+// ── Marketplace Integration ───────────────────────────────────────────────────
+
+export type MarketplaceStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'RATE_LIMITED' | 'PENDING_AUTH';
+export type SyncStatus = 'SYNCED' | 'SYNCING' | 'FAILED' | 'PENDING' | 'PARTIAL';
+
+export interface MarketplaceIntegration {
+  integration_id: string;
+  company_id: string;
+  marketplace_name: string;
+  marketplace_code: string;
+  logo_color: string;
+  status: MarketplaceStatus;
+  connected_at?: string;
+  last_sync_at?: string;
+  last_sync_status: SyncStatus;
+  last_sync_orders: number;
+  last_sync_errors: number;
+  total_orders_synced: number;
+  pending_orders: number;
+  api_quota_used: number;
+  api_quota_limit: number;
+  seller_id?: string;
+  store_name?: string;
+  region?: string;
+  credentials_valid: boolean;
+  credentials_expiry?: string;
+  auto_vat_code: boolean;
+  auto_drc_check: boolean;
+  auto_export_detect: boolean;
+  fee_percent: number;
+  sync_interval_mins: number;
+  webhook_url?: string;
+  recent_errors: IntegrationError[];
+  sync_log: SyncLogEntry[];
+}
+
+export interface IntegrationError {
+  error_id: string;
+  timestamp: string;
+  code: string;
+  message: string;
+  order_ref?: string;
+  resolved: boolean;
+}
+
+export interface SyncLogEntry {
+  log_id: string;
+  timestamp: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  entity_type: string;
+  count: number;
+  status: SyncStatus;
+  duration_ms: number;
+  errors: number;
+}
+
+// ── Notifications & Alerts ────────────────────────────────────────────────────
+
+export type NotifSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'SUCCESS';
+export type NotifCategory =
+  | 'OPR' | 'VAT' | 'RMA' | 'COURIER' | 'INVENTORY'
+  | 'REPAIR' | 'MARKETPLACE' | 'SYSTEM' | 'SECURITY' | 'FINANCE';
+
+export interface Notification {
+  notif_id: string;
+  company_id: string;
+  severity: NotifSeverity;
+  category: NotifCategory;
+  title: string;
+  message: string;
+  created_at: string;
+  read: boolean;
+  read_at?: string;
+  action_url?: string;
+  action_label?: string;
+  entity_type?: string;
+  entity_id?: string;
+  auto_dismissed: boolean;
+  expires_at?: string;
 }

@@ -147,6 +147,11 @@ function getIndexHTML(): string {
       <span>Suppliers & Batches</span>
     </button>
 
+    <button onclick="navigateTo('scanner')" id="nav-scanner" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-barcode w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>IMEI Scanner</span>
+    </button>
+
     <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Customer & Risk</div>
 
     <button onclick="navigateTo('support')" id="nav-support" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
@@ -198,6 +203,18 @@ function getIndexHTML(): string {
       <span>Audit Log</span>
     </button>
 
+    <button onclick="navigateTo('marketplace')" id="nav-marketplace" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-store w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Marketplace Hub</span>
+      <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold" id="mkt-badge">!</span>
+    </button>
+
+    <button onclick="navigateTo('tenants')" id="nav-tenants" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-users-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Tenant Management</span>
+      <span class="ml-auto bg-indigo-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">5</span>
+    </button>
+
     <button onclick="navigateTo('admin')" id="nav-admin" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
       <i class="fas fa-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
       <span>Admin & Settings</span>
@@ -210,7 +227,7 @@ function getIndexHTML(): string {
       <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
       <span>System Operational</span>
     </div>
-    <div class="mt-1">v2.3.0 · Phase 3 Build</div>
+    <div class="mt-1">v2.4.0 · Phase 4 Build</div>
   </div>
 </aside>
 
@@ -425,6 +442,9 @@ function navigateTo(page) {
     mtd: ['HMRC MTD VAT Returns', 'Making Tax Digital Submission Workflow'],
     audit: ['Audit Log', 'Immutable System Event Trail'],
     admin: ['Admin & Settings', 'System Configuration'],
+    scanner: ['IMEI Scanner', 'Barcode & IMEI Intake Workflow'],
+    marketplace: ['Marketplace Hub', 'Channel Integrations & Sync Status'],
+    tenants: ['Tenant Management', 'SaaS Platform Administration'],
   };
   const [title, sub] = pages[page] || ['RefurbIQ', ''];
   document.getElementById('page-title').textContent = title;
@@ -449,6 +469,9 @@ function navigateTo(page) {
     mtd: renderMTD,
     audit: renderAuditLog,
     admin: renderAdmin,
+    scanner: renderScanner,
+    marketplace: renderMarketplace,
+    tenants: renderTenants,
   };
   
   setTimeout(() => {
@@ -2704,6 +2727,60 @@ async function renderProfitability() {
         </div>
       </div>
 
+      <!-- P&L Waterfall -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-water text-blue-400"></i> P&L Waterfall — April 2026 MTD</h3>
+        <div class="flex items-end gap-2 overflow-x-auto pb-2">
+          \${[
+            { label: 'Gross Revenue', value: summary.total_gross_revenue, color: 'bg-blue-600', base: 0 },
+            { label: 'VAT Collected', value: -summary.total_vat, color: 'bg-amber-600', sign: '-' },
+            { label: 'Net Revenue', value: summary.total_net_revenue, color: 'bg-indigo-600', divider: true },
+            { label: 'Costs', value: -summary.total_costs, color: 'bg-red-600', sign: '-' },
+            { label: 'Net Profit', value: summary.total_net_profit, color: summary.total_net_profit >= 0 ? 'bg-emerald-600' : 'bg-red-700', divider: true },
+          ].map(step => {
+            const pct = Math.abs(step.value) / summary.total_gross_revenue * 100;
+            return \`
+              <div class="flex flex-col items-center gap-1.5 min-w-20">
+                <div class="text-xs font-bold \${step.value >= 0 ? 'text-white' : 'text-red-400'}">\${step.sign || ''}\${fmt(Math.abs(step.value))}</div>
+                <div class="\${step.color} rounded-t-md w-full" style="height:\${Math.max(20, pct * 1.8)}px"></div>
+                <div class="text-xs text-gray-400 text-center leading-tight">\${step.label}</div>
+                \${step.divider ? '<div class="w-full border-t border-gray-600 mt-1"></div>' : ''}
+              </div>
+            \`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- MTD Integration Panel -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-link text-purple-400"></i> HMRC MTD Integration</h3>
+          <button onclick="navigateTo('mtd')" class="text-xs bg-purple-700 hover:bg-purple-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-external-link-alt mr-1"></i>Open MTD Returns</button>
+        </div>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-800/50 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">VAT on Sales</div>
+            <div class="font-bold text-amber-400">\${fmt(summary.total_vat)}</div>
+            <div class="text-xs text-gray-500 mt-1">→ MTD Box 1</div>
+          </div>
+          <div class="bg-gray-800/50 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">Net Sales Value</div>
+            <div class="font-bold text-white">\${fmt(summary.total_net_revenue)}</div>
+            <div class="text-xs text-gray-500 mt-1">→ MTD Box 6</div>
+          </div>
+          <div class="bg-gray-800/50 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">Avg Margin</div>
+            <div class="font-bold \${summary.avg_margin_percent >= 20 ? 'text-emerald-400' : 'text-amber-400'}">\${summary.avg_margin_percent}%</div>
+            <div class="text-xs text-gray-500 mt-1">Target: ≥20%</div>
+          </div>
+          <div class="bg-gray-800/50 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">Period</div>
+            <div class="font-bold text-blue-300">\${summary.period}</div>
+            <div class="text-xs text-gray-500 mt-1">Q2 2026 Open</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Unit P&L Table -->
       <div>
         <div class="flex items-center justify-between mb-3">
@@ -3404,7 +3481,7 @@ async function renderMTD() {
                   <button onclick="alert('📤 Sending for accountant review...')" class="text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-search mr-1"></i>Submit for Review</button>
                 \` : ''}
                 \${r.status === 'REVIEW_PENDING' ? \`<button onclick="alert('✅ Manager approval recorded')" class="text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-user-shield mr-1"></i>Approve (Manager)</button>\` : ''}
-                \${r.status === 'MANAGER_APPROVED' ? \`<button onclick="alert('🚀 Submitting to HMRC MTD API...')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-paper-plane mr-1"></i>Submit to HMRC</button>\` : ''}
+                \${r.status === 'MANAGER_APPROVED' ? \`<button onclick="submitMTDReturn('\${r.return_id}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-paper-plane mr-1"></i>Submit to HMRC</button>\` : ''}
                 \${r.status === 'ACCEPTED' ? \`
                   <button onclick="alert('📄 Generating VAT return PDF...')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-file-pdf mr-1"></i>Download PDF</button>
                   <button onclick="alert('📤 Exported to Xero / QuickBooks')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-sync mr-1"></i>Export to Accounting</button>
@@ -3418,6 +3495,23 @@ async function renderMTD() {
       </div>
     </div>
   \`;
+}
+
+async function submitMTDReturn(returnId) {
+  if (!confirm('Submit this VAT return to HMRC MTD API? This action cannot be undone.')) return;
+  try {
+    const res = await axios.post(API + '/mtd-returns/' + returnId + '/submit');
+    const d = res.data;
+    alert(\`✅ VAT return accepted by HMRC!\n\nReceipt ID: \${d.receipt_id}\nProcessing Date: \${d.processing_date}\n\nPage will refresh.\`);
+    renderMTD();
+  } catch (err: any) {
+    const e = err.response?.data;
+    if (e?.errors?.length) {
+      alert('❌ Submission failed — Validation errors:\n• ' + e.errors.join('\n• '));
+    } else {
+      alert('❌ Submission failed: ' + (e?.error || 'Unknown error'));
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3524,6 +3618,675 @@ async function filterAuditLog() {
   const url = API + '/audit-log' + (params.length ? '?' + params.join('&') : '');
   const data = await axios.get(url).then(r => r.data);
   document.getElementById('audit-table').innerHTML = renderAuditTable(data.entries);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: IMEI / BARCODE SCANNER
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderScanner() {
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Scanner Header Banner -->
+      <div class="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-700/40 rounded-xl p-5">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center text-3xl">
+            <i class="fas fa-barcode text-white"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-white">IMEI & Barcode Scanner</h2>
+            <p class="text-sm text-blue-300">Scan or enter IMEI/barcode to look up existing devices, batches, or create new intake records</p>
+          </div>
+          <div class="ml-auto text-right">
+            <div class="text-xs text-gray-400">Non-Negotiable</div>
+            <div class="text-xs text-blue-300 font-medium">Duplicate IMEI blocked globally</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lookup Panel -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- Scanner Input -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+            <i class="fas fa-search text-blue-400"></i> Quick Lookup
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">IMEI / Barcode / Batch ID</label>
+              <div class="flex gap-2">
+                <input id="scanner-input" type="text" placeholder="Enter or scan IMEI..." class="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500" onkeydown="if(event.key==='Enter') scanLookup()">
+                <button onclick="scanLookup()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium"><i class="fas fa-search mr-1"></i>Scan</button>
+              </div>
+            </div>
+            <div id="scanner-result"></div>
+          </div>
+
+          <!-- Quick IMEI examples -->
+          <div class="mt-4 pt-4 border-t border-gray-800">
+            <div class="text-xs text-gray-500 mb-2">Demo — click to scan:</div>
+            <div class="flex flex-wrap gap-2">
+              \${[
+                ['354678901234567', 'DEV001 iPhone 14 Pro'],
+                ['354678901234568', 'DEV002 iPhone 14 Pro'],
+                ['354678901234574', 'DEV008 iPhone 13 (Locked)'],
+                ['PB2026-001', 'Batch TS-INV-4421'],
+                ['999000111222333', 'New IMEI (not in system)'],
+              ].map(([val, label]) => \`
+                <button onclick="document.getElementById('scanner-input').value='\${val}';scanLookup()" class="text-xs bg-gray-800 hover:bg-blue-900/50 border border-gray-700 hover:border-blue-600 text-gray-300 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <i class="fas fa-barcode mr-1 text-gray-500"></i>\${label}
+                </button>
+              \`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- Intake Form (appears after lookup) -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+            <i class="fas fa-plus-circle text-emerald-400"></i> New Device Intake
+          </h3>
+          <div id="intake-form">
+            <div class="text-center py-8 text-gray-500">
+              <i class="fas fa-barcode text-4xl mb-3 text-gray-700"></i>
+              <div class="text-sm">Scan an IMEI to pre-fill intake form</div>
+              <div class="text-xs mt-1 text-gray-600">Or use the form below for manual entry</div>
+            </div>
+            <button onclick="showManualIntake()" class="w-full mt-2 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 py-2 rounded-lg">
+              <i class="fas fa-edit mr-1"></i> Manual Intake Entry
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Scans Log -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+          <i class="fas fa-history text-purple-400"></i> Recent Scan Activity
+        </h3>
+        <div id="scan-log" class="space-y-2">
+          <div class="text-sm text-gray-500 text-center py-4">No scans in this session</div>
+        </div>
+      </div>
+
+      <!-- IMEI Check Rules -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${[
+          ['fa-shield-alt', 'blue', 'Duplicate Block', 'Global IMEI deduplication across all tenants. Re-registration blocked.'],
+          ['fa-lock', 'red', 'Lock Detection', 'iCloud/FRP lock check at intake — flags to LOCKED status immediately.'],
+          ['fa-exchange-alt', 'amber', 'IMEI Mismatch', 'Return IMEI must match sold IMEI exactly. Mismatch freezes RMA.'],
+          ['fa-fingerprint', 'emerald', 'Audit Trail', 'Every IMEI scan logged with actor, timestamp and outcome.'],
+        ].map(([icon, color, title, desc]) => \`
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas \${icon} text-\${color}-400"></i>
+              <span class="text-sm font-semibold text-white">\${title}</span>
+            </div>
+            <p class="text-xs text-gray-400">\${desc}</p>
+          </div>
+        \`).join('')}
+      </div>
+    </div>
+  \`;
+}
+
+async function scanLookup() {
+  const val = (document.getElementById('scanner-input') as HTMLInputElement)?.value.trim();
+  if (!val) return;
+  const resultEl = document.getElementById('scanner-result');
+  resultEl.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-400"><div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>Looking up...</div>';
+
+  // Log the scan
+  const logEl = document.getElementById('scan-log');
+  const logEntry = document.createElement('div');
+  logEntry.className = 'flex items-center justify-between bg-gray-800 rounded-lg p-2.5 text-xs';
+  logEntry.innerHTML = \`<div class="flex items-center gap-2"><i class="fas fa-barcode text-blue-400"></i><span class="font-mono text-gray-300">\${val}</span></div><span class="text-gray-500">\${new Date().toLocaleTimeString('en-GB')}</span>\`;
+  logEl.innerHTML = '';
+  logEl.prepend(logEntry);
+
+  try {
+    const res = await axios.post(API + '/scanner/lookup', { imei: val });
+    const d = res.data;
+
+    if (d.found && d.type === 'device') {
+      const dev = d.device;
+      const actionColor = d.action === 'READY_TO_SHIP' ? 'emerald' : d.action === 'NEEDS_QC' ? 'amber' : 'blue';
+      logEntry.querySelector('i').className = 'fas fa-check-circle text-emerald-400';
+      resultEl.innerHTML = \`
+        <div class="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3"><i class="fas fa-check-circle text-emerald-400"></i><span class="font-semibold text-white">Device Found</span></div>
+          <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+            <div><span class="text-gray-400">Device ID:</span> <span class="text-white font-mono">\${dev.device_id}</span></div>
+            <div><span class="text-gray-400">IMEI:</span> <span class="text-white font-mono">\${dev.imei_primary || dev.imei || 'N/A'}</span></div>
+            <div><span class="text-gray-400">Make/Model:</span> <span class="text-white">\${dev.make} \${dev.model}</span></div>
+            <div><span class="text-gray-400">Grade:</span> <span class="text-white">\${dev.grade}</span></div>
+            <div><span class="text-gray-400">Status:</span> <span class="text-\${actionColor}-400 font-semibold">\${dev.status}</span></div>
+            <div><span class="text-gray-400">Location:</span> <span class="text-white">\${dev.location || 'N/A'}</span></div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="navigateTo('inventory')" class="text-xs bg-\${actionColor}-700 hover:bg-\${actionColor}-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-arrow-right mr-1"></i>\${d.action.replace(/_/g, ' ')}</button>
+            <button onclick="navigateTo('qc')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg">View QC</button>
+          </div>
+        </div>
+      \`;
+    } else if (d.found && d.type === 'batch') {
+      const b = d.batch;
+      logEntry.querySelector('i').className = 'fas fa-check-circle text-blue-400';
+      resultEl.innerHTML = \`
+        <div class="bg-blue-900/20 border border-blue-700/40 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2"><i class="fas fa-box text-blue-400"></i><span class="font-semibold text-white">Purchase Batch Found</span></div>
+          <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+            <div><span class="text-gray-400">Batch:</span> <span class="text-white font-mono">\${b.purchase_batch_id}</span></div>
+            <div><span class="text-gray-400">Supplier:</span> <span class="text-white">\${b.supplier_name}</span></div>
+            <div><span class="text-gray-400">Invoice:</span> <span class="text-white font-mono">\${b.external_invoice_ref}</span></div>
+            <div><span class="text-gray-400">Devices:</span> <span class="text-white">\${b.device_count}</span></div>
+          </div>
+          <button onclick="navigateTo('suppliers')" class="text-xs bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-arrow-right mr-1"></i>View Batch</button>
+        </div>
+      \`;
+    } else {
+      // New IMEI — show intake form
+      logEntry.querySelector('i').className = 'fas fa-plus-circle text-amber-400';
+      resultEl.innerHTML = \`
+        <div class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2"><i class="fas fa-info-circle text-amber-400"></i><span class="font-semibold text-white">New IMEI — Not in System</span></div>
+          \${d.suggestion ? \`<div class="text-xs text-amber-300 mb-3">\${d.suggestion}</div>\` : ''}
+          <button onclick="showIntakeForm('\${val}', '\${d.inferred_make||''}', '\${d.inferred_model||''}')" class="text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-plus mr-1"></i>Create Intake Record</button>
+        </div>
+      \`;
+      showIntakeForm(val, d.inferred_make || '', d.inferred_model || '');
+    }
+  } catch (err) {
+    resultEl.innerHTML = '<div class="text-sm text-red-400"><i class="fas fa-times-circle mr-1"></i>Lookup failed</div>';
+  }
+}
+
+function showIntakeForm(imei = '', make = '', model = '') {
+  document.getElementById('intake-form').innerHTML = \`
+    <form onsubmit="submitIntake(event)" class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">IMEI *</label>
+          <input name="imei" value="\${imei}" required class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Make *</label>
+          <input name="make" value="\${make}" required placeholder="Apple / Samsung / Google" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Model *</label>
+          <input name="model" value="\${model}" required placeholder="iPhone 14 Pro" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Storage *</label>
+          <select name="storage" required class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+            <option value="">Select...</option>
+            \${['64GB','128GB','256GB','512GB','1TB'].map(s => \`<option value="\${s}">\${s}</option>\`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Grade *</label>
+          <select name="grade" required class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+            <option value="">Select...</option>
+            \${['A+','A','B','C','D','F'].map(g => \`<option value="\${g}">\${g}</option>\`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Network *</label>
+          <select name="network" required class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+            \${['UNLOCKED','EE','O2','Vodafone','Three','AT&T','T-Mobile'].map(n => \`<option value="\${n}">\${n}</option>\`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Colour *</label>
+          <input name="colour" required placeholder="Space Black" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Unit Cost (£)</label>
+          <input name="unit_cost" type="number" step="0.01" placeholder="0.00" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-1 block">Purchase Batch *</label>
+        <select name="purchase_batch_id" required class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+          <option value="PB2026-001">PB2026-001 — TechSource Ltd (TS-INV-4421)</option>
+          <option value="PB2026-002">PB2026-002 — Mobile Wholesale EU (MWEU-INV-8821)</option>
+          <option value="PB2026-003">PB2026-003 — PhoneFlip Direct (PF-INV-2201)</option>
+          <option value="PB2026-004">PB2026-004 — TechSource Ltd (TS-INV-4490)</option>
+        </select>
+      </div>
+      <div id="intake-status"></div>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded-lg text-sm font-medium"><i class="fas fa-plus-circle mr-1"></i>Create Intake Record</button>
+        <button type="button" onclick="document.getElementById('intake-form').innerHTML='<div class=text-center\\ py-8\\ text-gray-500><i class=fas\\ fa-barcode\\ text-4xl\\ mb-3\\ text-gray-700></i><div class=text-sm>Form cancelled</div></div>'" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg">Cancel</button>
+      </div>
+    </form>
+  \`;
+}
+
+function showManualIntake() { showIntakeForm(); }
+
+async function submitIntake(e) {
+  e.preventDefault();
+  const form = e.target;
+  const statusEl = document.getElementById('intake-status');
+  const data = Object.fromEntries(new FormData(form));
+  data.unit_cost = parseFloat(data.unit_cost as string) || 0;
+  statusEl.innerHTML = '<div class="flex items-center gap-2 text-xs text-gray-400"><div class="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>Creating record...</div>';
+  try {
+    const res = await axios.post(API + '/scanner/intake', data);
+    statusEl.innerHTML = \`
+      <div class="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 text-xs">
+        <div class="flex items-center gap-2 text-emerald-300 font-semibold mb-1"><i class="fas fa-check-circle"></i>\${res.data.message}</div>
+        <div class="text-gray-400">Device ID: <span class="font-mono text-white">\${res.data.device_id}</span> · Status: <span class="text-amber-300">\${res.data.status}</span></div>
+        <button onclick="navigateTo('qc')" class="mt-2 text-xs bg-amber-700 hover:bg-amber-800 text-white px-2 py-1 rounded">Go to QC Queue <i class="fas fa-arrow-right ml-1"></i></button>
+      </div>
+    \`;
+    form.reset();
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.response?.data?.error || 'Intake failed';
+    const code = err.response?.data?.error;
+    statusEl.innerHTML = \`<div class="bg-red-900/20 border border-red-700/40 rounded-lg p-3 text-xs text-red-300"><i class="fas fa-times-circle mr-1"></i>\${code === 'DUPLICATE_IMEI' ? '🛑 DUPLICATE IMEI BLOCKED — ' : ''}\${msg}</div>\`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: MARKETPLACE HUB
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderMarketplace() {
+  const [integrations, summary] = await Promise.all([
+    axios.get(API + '/marketplace').then(r => r.data),
+    axios.get(API + '/marketplace/stats/summary').then(r => r.data),
+  ]);
+  window._integrations = integrations;
+
+  const statusColor = { CONNECTED: 'text-emerald-400', DISCONNECTED: 'text-gray-400', ERROR: 'text-red-400', RATE_LIMITED: 'text-amber-400', PENDING_AUTH: 'text-blue-400' };
+  const statusBg = { CONNECTED: 'bg-emerald-500/20 border-emerald-500/40', DISCONNECTED: 'bg-gray-500/20 border-gray-500/40', ERROR: 'bg-red-500/20 border-red-500/40', RATE_LIMITED: 'bg-amber-500/20 border-amber-500/40', PENDING_AUTH: 'bg-blue-500/20 border-blue-500/40' };
+  const syncColor = { SYNCED: 'text-emerald-400', SYNCING: 'text-blue-400', FAILED: 'text-red-400', PENDING: 'text-amber-400', PARTIAL: 'text-amber-400' };
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Summary KPIs -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${statCard('Connected', summary.connected + ' / ' + summary.total, 'fa-plug', 'bg-emerald-700', 'Marketplaces')}
+        \${statCard('Errors', summary.errors, 'fa-exclamation-triangle', summary.errors > 0 ? 'bg-red-700' : 'bg-gray-700', 'Require action')}
+        \${statCard('Orders Synced', fmtNum(summary.total_orders_synced), 'fa-shopping-cart', 'bg-blue-700', 'Total all time')}
+        \${statCard('Pending Orders', summary.pending_orders, 'fa-clock', summary.pending_orders > 0 ? 'bg-amber-700' : 'bg-gray-700', 'Awaiting processing')}
+      </div>
+
+      \${summary.errors > 0 ? \`
+        <div class="bg-red-900/20 border border-red-700/40 rounded-xl p-4 flex items-start gap-3">
+          <i class="fas fa-exclamation-triangle text-red-400 text-lg mt-0.5"></i>
+          <div>
+            <div class="font-semibold text-red-300 mb-1">Action Required — Marketplace Integration Error</div>
+            <div class="text-sm text-gray-300">eBay OAuth token expired on 2026-04-09. Order sync and listing updates are failing. Re-authenticate to restore connectivity.</div>
+            <button onclick="reconnectMarketplace('MKT-INT-003')" class="mt-2 text-xs bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-key mr-1"></i>Re-authenticate eBay</button>
+          </div>
+        </div>
+      \` : ''}
+
+      <!-- Integration Cards -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-5" id="mkt-cards">
+        \${integrations.map(m => \`
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 card-hover" id="mkt-card-\${m.integration_id}">
+            <!-- Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm" style="background-color:\${m.logo_color}20; border: 1px solid \${m.logo_color}40">
+                  <i class="fas fa-store" style="color:\${m.logo_color}"></i>
+                </div>
+                <div>
+                  <div class="font-semibold text-white">\${m.marketplace_name}</div>
+                  <div class="text-xs text-gray-400">\${m.store_name || 'No store name'}</div>
+                </div>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-full border \${statusBg[m.status]} \${statusColor[m.status]} font-semibold">\${m.status}</span>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-2 mb-4">
+              <div class="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                <div class="text-xs text-gray-400">Orders (Total)</div>
+                <div class="font-bold text-white">\${fmtNum(m.total_orders_synced)}</div>
+              </div>
+              <div class="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                <div class="text-xs text-gray-400">Pending</div>
+                <div class="font-bold \${m.pending_orders > 0 ? 'text-amber-400' : 'text-white'}">\${m.pending_orders}</div>
+              </div>
+              <div class="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                <div class="text-xs text-gray-400">Fee Rate</div>
+                <div class="font-bold text-amber-400">\${m.fee_percent}%</div>
+              </div>
+              <div class="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                <div class="text-xs text-gray-400">API Quota</div>
+                <div class="font-bold \${m.api_quota_used / m.api_quota_limit > 0.8 ? 'text-red-400' : 'text-white'}">\${m.api_quota_used}/\${m.api_quota_limit}</div>
+              </div>
+            </div>
+
+            <!-- Quota Bar -->
+            <div class="mb-3">
+              <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span>API Quota</span>
+                <span>\${Math.round(m.api_quota_used / m.api_quota_limit * 100)}%</span>
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-1.5">
+                <div class="h-1.5 rounded-full \${m.api_quota_used / m.api_quota_limit > 0.8 ? 'bg-red-500' : 'bg-blue-500'} progress-bar" style="width:\${Math.round(m.api_quota_used / m.api_quota_limit * 100)}%"></div>
+              </div>
+            </div>
+
+            <!-- Last Sync -->
+            <div class="flex items-center justify-between text-xs mb-3">
+              <span class="text-gray-400">Last sync:</span>
+              <span class="\${syncColor[m.last_sync_status]} font-medium">\${m.last_sync_at ? new Date(m.last_sync_at).toLocaleString('en-GB') : 'Never'}</span>
+            </div>
+
+            <!-- Errors -->
+            \${m.recent_errors.filter(e => !e.resolved).length > 0 ? \`
+              <div class="bg-red-900/20 border border-red-700/40 rounded-lg p-2 mb-3 text-xs">
+                <div class="text-red-300 font-semibold mb-1"><i class="fas fa-times-circle mr-1"></i>\${m.recent_errors.filter(e => !e.resolved).length} active error(s)</div>
+                \${m.recent_errors.filter(e => !e.resolved).map(err => \`<div class="text-gray-400 truncate">\${err.message}</div>\`).join('')}
+              </div>
+            \` : ''}
+
+            <!-- Auto-Features -->
+            <div class="flex gap-1.5 flex-wrap mb-3">
+              \${m.auto_vat_code ? '<span class="text-xs bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-700/30">Auto VAT</span>' : ''}
+              \${m.auto_drc_check ? '<span class="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded-full border border-blue-700/30">DRC Check</span>' : ''}
+              \${m.auto_export_detect ? '<span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded-full border border-purple-700/30">Export Detect</span>' : ''}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2 pt-3 border-t border-gray-800">
+              \${m.status === 'CONNECTED' ? \`
+                <button onclick="syncMarketplace('\${m.integration_id}')" class="flex-1 text-xs bg-blue-700 hover:bg-blue-800 text-white py-1.5 rounded-lg"><i class="fas fa-sync mr-1"></i>Sync Now</button>
+              \` : \`
+                <button onclick="reconnectMarketplace('\${m.integration_id}')" class="flex-1 text-xs bg-amber-700 hover:bg-amber-800 text-white py-1.5 rounded-lg"><i class="fas fa-key mr-1"></i>Reconnect</button>
+              \`}
+              <button onclick="openMktDetail('\${m.integration_id}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        \`).join('')}
+      </div>
+
+      <!-- Sync History -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-list text-gray-400"></i> Recent Sync Log</h3>
+        <div class="space-y-2">
+          \${integrations.flatMap(m => m.sync_log.map(l => ({ ...l, marketplace: m.marketplace_name, logo_color: m.logo_color }))).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10).map(l => \`
+            <div class="flex items-center gap-3 py-2 border-b border-gray-800 last:border-0 text-xs">
+              <div class="w-6 h-6 rounded flex items-center justify-center font-bold" style="background-color:\${l.logo_color}20"><i class="fas fa-store text-xs" style="color:\${l.logo_color}"></i></div>
+              <span class="text-gray-400 w-24">\${l.marketplace}</span>
+              <span class="text-gray-300">\${l.direction === 'INBOUND' ? '↓' : '↑'} \${l.entity_type}</span>
+              <span class="text-white">\${l.count} records</span>
+              <span class="\${l.status === 'SYNCED' ? 'text-emerald-400' : l.status === 'FAILED' ? 'text-red-400' : 'text-amber-400'}">\${l.status}</span>
+              <span class="text-gray-500 ml-auto">\${new Date(l.timestamp).toLocaleString('en-GB')}</span>
+              <span class="text-gray-600">\${l.duration_ms}ms</span>
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+    </div>
+  \`;
+}
+
+async function syncMarketplace(id) {
+  try {
+    const res = await axios.post(API + '/marketplace/' + id + '/sync');
+    const d = res.data;
+    alert(\`✅ Sync complete — \${d.orders_synced} orders pulled in \${d.duration_ms}ms. Page will refresh.\`);
+    renderMarketplace();
+  } catch (err: any) {
+    alert('Sync failed: ' + (err.response?.data?.error || 'Unknown error'));
+  }
+}
+
+async function reconnectMarketplace(id) {
+  const mkt = (window as any)._integrations?.find(m => m.integration_id === id);
+  if (!confirm(\`Re-authenticate \${mkt?.marketplace_name || id}? This will simulate a successful OAuth reconnection.\`)) return;
+  try {
+    const res = await axios.post(API + '/marketplace/' + id + '/reconnect');
+    alert(\`✅ \${mkt?.marketplace_name || id} reconnected — status: \${res.data.status}. Page will refresh.\`);
+    renderMarketplace();
+  } catch (err) {
+    alert('Reconnection failed');
+  }
+}
+
+function openMktDetail(id) {
+  const m = (window as any)._integrations?.find(x => x.integration_id === id);
+  if (!m) return;
+  openModal(\`Integration Detail: \${m.marketplace_name}\`, \`
+    <div class="space-y-4 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        \${[
+          ['Seller ID', m.seller_id || 'N/A'],
+          ['Region', m.region || 'N/A'],
+          ['Connected', m.connected_at ? new Date(m.connected_at).toLocaleDateString('en-GB') : 'N/A'],
+          ['Token Expiry', m.credentials_expiry ? new Date(m.credentials_expiry).toLocaleDateString('en-GB') : 'N/A'],
+          ['Sync Interval', m.sync_interval_mins + ' mins'],
+          ['Fee Rate', m.fee_percent + '%'],
+        ].map(([k, v]) => \`<div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">\${k}</div><div class="text-white font-medium truncate">\${v}</div></div>\`).join('')}
+      </div>
+      \${m.webhook_url ? \`<div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Webhook URL</div><div class="font-mono text-xs text-blue-300 break-all">\${m.webhook_url}</div></div>\` : ''}
+      \${m.sync_log.length > 0 ? \`
+        <div><div class="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wider">Sync History</div>
+        \${m.sync_log.map(l => \`<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs"><span class="text-gray-300">\${l.direction} \${l.entity_type}</span><span class="text-white">\${l.count}</span><span class="\${l.status === 'SYNCED' ? 'text-emerald-400' : 'text-red-400'}">\${l.status}</span><span class="text-gray-500">\${new Date(l.timestamp).toLocaleString('en-GB')}</span></div>\`).join('')}
+        </div>
+      \` : ''}
+    </div>
+  \`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: TENANT MANAGEMENT (SaaS)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderTenants() {
+  const [tenantList, summary] = await Promise.all([
+    axios.get(API + '/tenants').then(r => r.data),
+    axios.get(API + '/tenants/summary').then(r => r.data),
+  ]);
+  window._tenants = tenantList;
+
+  const planColor = { STARTER: 'text-gray-400', PROFESSIONAL: 'text-blue-400', ENTERPRISE: 'text-purple-400', WHITE_LABEL: 'text-amber-400' };
+  const planBg = { STARTER: 'bg-gray-500/20 border-gray-600/40', PROFESSIONAL: 'bg-blue-500/20 border-blue-600/40', ENTERPRISE: 'bg-purple-500/20 border-purple-600/40', WHITE_LABEL: 'bg-amber-500/20 border-amber-600/40' };
+  const statusColor = { ACTIVE: 'text-emerald-400', TRIAL: 'text-blue-400', SUSPENDED: 'text-red-400', CANCELLED: 'text-gray-400', PENDING: 'text-amber-400' };
+  const statusBg = { ACTIVE: 'bg-emerald-500/20 border-emerald-500/40', TRIAL: 'bg-blue-500/20 border-blue-500/40', SUSPENDED: 'bg-red-500/20 border-red-500/40', CANCELLED: 'bg-gray-500/20 border-gray-500/40', PENDING: 'bg-amber-500/20 border-amber-500/40' };
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- SaaS KPIs -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        \${statCard('Total Tenants', summary.total_tenants, 'fa-building', 'bg-indigo-700', 'All registered')}
+        \${statCard('Active', summary.active_tenants, 'fa-check-circle', 'bg-emerald-700', 'Paying subscribers')}
+        \${statCard('MRR', fmt(summary.mrr), 'fa-pound-sign', 'bg-blue-700', 'Monthly recurring')}
+        \${statCard('ARR', fmt(summary.arr), 'fa-chart-line', 'bg-purple-700', 'Annual run rate')}
+      </div>
+
+      <!-- Plan Breakdown + Trial -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-layer-group text-blue-400"></i> Plan Distribution</h3>
+          <div class="space-y-2">
+            \${Object.entries(summary.plan_breakdown).map(([plan, count]: [string, any]) => \`
+              <div class="flex items-center justify-between">
+                <span class="\${planColor[plan] || 'text-gray-300'} text-sm">\${plan}</span>
+                <div class="flex items-center gap-3">
+                  <div class="w-24 bg-gray-800 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full bg-blue-500 progress-bar" style="width:\${Math.round(count / summary.total_tenants * 100)}%"></div>
+                  </div>
+                  <span class="text-white font-bold text-sm w-6 text-right">\${count}</span>
+                </div>
+              </div>
+            \`).join('')}
+          </div>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-clock text-amber-400"></i> Status Overview</h3>
+          <div class="space-y-2">
+            \${[['ACTIVE', summary.active_tenants, 'emerald'], ['TRIAL', summary.trial_tenants, 'blue'], ['SUSPENDED', summary.suspended_tenants, 'red']].map(([status, count, color]: [string, any, string]) => \`
+              <div class="flex items-center justify-between bg-gray-800/50 rounded-lg p-3">
+                <span class="text-\${color}-400 text-sm font-medium">\${status}</span>
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 rounded-full bg-\${color}-400"></div>
+                  <span class="text-white font-bold">\${count}</span>
+                </div>
+              </div>
+            \`).join('')}
+          </div>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-mobile-alt text-purple-400"></i> Usage Metrics</h3>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Avg Devices / Tenant</span><span class="text-white font-bold">\${summary.avg_devices_per_tenant}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Total MRR</span><span class="text-emerald-400 font-bold">\${fmt(summary.mrr)}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">ARR Projection</span><span class="text-blue-400 font-bold">\${fmt(summary.arr)}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tenant Table -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-users text-indigo-400"></i> Tenant Registry</h3>
+          <div class="flex gap-2">
+            <select id="tenant-status-filter" onchange="filterTenants()" class="text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none">
+              <option value="">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="TRIAL">Trial</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+            <select id="tenant-plan-filter" onchange="filterTenants()" class="text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none">
+              <option value="">All Plans</option>
+              <option value="STARTER">Starter</option>
+              <option value="PROFESSIONAL">Professional</option>
+              <option value="ENTERPRISE">Enterprise</option>
+            </select>
+          </div>
+        </div>
+        <div id="tenant-table" class="divide-y divide-gray-800">
+          \${renderTenantRows(tenantList)}
+        </div>
+      </div>
+    </div>
+  \`;
+}
+
+function renderTenantRows(list) {
+  const planColor = { STARTER: 'bg-gray-500/20 border-gray-600/40 text-gray-400', PROFESSIONAL: 'bg-blue-500/20 border-blue-600/40 text-blue-400', ENTERPRISE: 'bg-purple-500/20 border-purple-600/40 text-purple-400', WHITE_LABEL: 'bg-amber-500/20 border-amber-600/40 text-amber-400' };
+  const statusColor = { ACTIVE: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400', TRIAL: 'bg-blue-500/20 border-blue-500/40 text-blue-400', SUSPENDED: 'bg-red-500/20 border-red-500/40 text-red-400', CANCELLED: 'bg-gray-500/20 border-gray-500/40 text-gray-400', PENDING: 'bg-amber-500/20 border-amber-500/40 text-amber-400' };
+  return list.map(t => \`
+    <div class="flex items-center gap-4 px-5 py-3 hover:bg-gray-800/50 transition-colors cursor-pointer" onclick="openTenantDetail('\${t.tenant_id}')">
+      <div class="w-8 h-8 bg-indigo-900/50 border border-indigo-700/40 rounded-lg flex items-center justify-center text-indigo-400 text-xs font-bold">\${t.company_name.substring(0, 2).toUpperCase()}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-white truncate">\${t.company_name}</div>
+        <div class="text-xs text-gray-400">\${t.subdomain}.refurbiq.io · \${t.contact_email}</div>
+      </div>
+      <div class="hidden xl:flex items-center gap-2">
+        <span class="text-xs px-2 py-0.5 rounded-full border \${planColor[t.plan] || 'text-gray-400'} font-medium">\${t.plan}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full border \${statusColor[t.status] || 'text-gray-400'} font-medium">\${t.status}</span>
+      </div>
+      <div class="text-right hidden xl:block">
+        <div class="text-sm text-white font-bold">\${fmt(t.monthly_fee)}/mo</div>
+        <div class="text-xs text-gray-400">\${t.usage.devices_total} devices</div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-gray-400">\${t.users.length} user(s)</div>
+        <div class="text-xs text-gray-500">Since \${new Date(t.created_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'short' })}</div>
+      </div>
+      \${t.status === 'SUSPENDED' ? '<div class="text-xs text-red-400 font-semibold"><i class="fas fa-ban"></i></div>' : ''}
+    </div>
+  \`).join('');
+}
+
+function filterTenants() {
+  const status = (document.getElementById('tenant-status-filter') as HTMLSelectElement)?.value;
+  const plan = (document.getElementById('tenant-plan-filter') as HTMLSelectElement)?.value;
+  let list = (window as any)._tenants || [];
+  if (status) list = list.filter(t => t.status === status);
+  if (plan) list = list.filter(t => t.plan === plan);
+  document.getElementById('tenant-table').innerHTML = renderTenantRows(list);
+}
+
+function openTenantDetail(id) {
+  const t = (window as any)._tenants?.find(x => x.tenant_id === id);
+  if (!t) return;
+  const planColor = { STARTER: 'text-gray-400', PROFESSIONAL: 'text-blue-400', ENTERPRISE: 'text-purple-400', WHITE_LABEL: 'text-amber-400' };
+  const statusColor = { ACTIVE: 'text-emerald-400', TRIAL: 'text-blue-400', SUSPENDED: 'text-red-400', CANCELLED: 'text-gray-400', PENDING: 'text-amber-400' };
+  openModal(\`Tenant: \${t.company_name}\`, \`
+    <div class="space-y-4 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Tenant ID</div><div class="font-mono text-white">\${t.tenant_id}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Company No.</div><div class="font-mono text-white">\${t.company_number || 'N/A'}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">VAT Number</div><div class="font-mono text-white">\${t.vat_number || 'N/A'}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Subdomain</div><div class="text-blue-300">\${t.subdomain}.refurbiq.io</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Plan</div><div class="\${planColor[t.plan]||'text-white'} font-bold">\${t.plan}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Status</div><div class="\${statusColor[t.status]||'text-white'} font-bold">\${t.status}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Monthly Fee</div><div class="text-emerald-400 font-bold">\${fmt(t.monthly_fee)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Renewal</div><div class="text-white">\${t.subscription_renewal ? new Date(t.subscription_renewal).toLocaleDateString('en-GB') : 'N/A'}</div></div>
+      </div>
+
+      <div>
+        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Usage</div>
+        <div class="grid grid-cols-3 gap-2">
+          \${[
+            ['Devices', t.usage.devices_total, t.usage.devices_limit],
+            ['Users', t.usage.active_users, t.usage.users_limit],
+            ['Storage', t.usage.storage_mb + ' MB', t.usage.storage_limit_mb + ' MB'],
+          ].map(([label, used, limit]) => \`
+            <div class="bg-gray-800 rounded-lg p-3 text-center">
+              <div class="text-xs text-gray-400">\${label}</div>
+              <div class="font-bold text-white">\${used}</div>
+              <div class="text-xs text-gray-600">/ \${limit}</div>
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      \${t.users.length > 0 ? \`
+        <div>
+          <div class="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Users (\${t.users.length})</div>
+          \${t.users.map(u => \`
+            <div class="flex items-center justify-between py-2 border-b border-gray-800 text-xs">
+              <div><div class="text-white">\${u.name}</div><div class="text-gray-400">\${u.email}</div></div>
+              <div class="text-right"><div class="text-blue-400">\${u.role}</div><div class="text-gray-500">\${u.last_login ? 'Last: ' + new Date(u.last_login).toLocaleDateString('en-GB') : 'Never logged in'}</div></div>
+            </div>
+          \`).join('')}
+        </div>
+      \` : ''}
+
+      \${t.notes ? \`<div class="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-xs text-amber-300"><i class="fas fa-sticky-note mr-1"></i>\${t.notes}</div>\` : ''}
+
+      <div class="flex gap-2 pt-2 border-t border-gray-800">
+        \${t.status !== 'SUSPENDED' ? \`<button onclick="suspendTenant('\${t.tenant_id}')" class="text-xs bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-ban mr-1"></i>Suspend</button>\` : \`<button onclick="reactivateTenant('\${t.tenant_id}')" class="text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-check mr-1"></i>Reactivate</button>\`}
+        <button onclick="closeModal()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg">Close</button>
+      </div>
+    </div>
+  \`);
+}
+
+async function suspendTenant(id) {
+  if (!confirm('Suspend this tenant? All access will be blocked immediately.')) return;
+  try {
+    await axios.patch(API + '/tenants/' + id + '/status', { status: 'SUSPENDED' });
+    closeModal();
+    alert('Tenant suspended. Page will refresh.');
+    renderTenants();
+  } catch (err) { alert('Failed to suspend tenant'); }
+}
+
+async function reactivateTenant(id) {
+  if (!confirm('Reactivate this tenant?')) return;
+  try {
+    await axios.patch(API + '/tenants/' + id + '/status', { status: 'ACTIVE' });
+    closeModal();
+    alert('Tenant reactivated. Page will refresh.');
+    renderTenants();
+  } catch (err) { alert('Failed to reactivate tenant'); }
 }
 
 

@@ -10,6 +10,9 @@ import type {
   SupplierMetric, SupplierAnalyticsSummary,
   AuditEntry,
   MTDVatReturn,
+  Tenant, TenantSaaSSummary,
+  MarketplaceIntegration,
+  Notification,
 } from '../types/index.js';
 
 const COMPANY_ID = 'REFURBIQ_DEMO';
@@ -814,3 +817,228 @@ export const mtdVatReturns: MTDVatReturn[] = [
     payment_reference: undefined,
   },
 ];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 4 DATA — SaaS Tenants, Marketplace Integrations, Notifications
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── SaaS Tenants ──────────────────────────────────────────────────────────────
+
+export const tenants: Tenant[] = [
+  {
+    tenant_id: 'TNT-001', company_name: 'RefurbIQ Demo Ltd',
+    company_number: '12345678', vat_number: 'GB369979995',
+    contact_email: 'admin@refurbiq.co.uk', contact_phone: '+44 20 1234 5678',
+    address_line1: '42 Tech Street', address_city: 'London',
+    address_postcode: 'EC1A 1BB', country: 'GB',
+    plan: 'PROFESSIONAL', status: 'ACTIVE',
+    subdomain: 'refurbiq', created_at: '2025-10-01',
+    subscription_start: '2025-10-01', subscription_renewal: '2026-10-01',
+    monthly_fee: 299, currency: 'GBP', billing_email: 'finance@refurbiq.co.uk',
+    stripe_customer_id: 'cus_RefurbIQDemo001',
+    hmrc_vrn: 'GB369979995', hmrc_mtd_authorised: true,
+    xero_connected: true, quickbooks_connected: false,
+    users: [
+      { user_id: 'USR-001', email: 'admin@refurbiq.co.uk', full_name: 'Alex Morgan', role: 'ADMIN', last_login: '2026-04-11T08:00:00Z', is_active: true, mfa_enabled: true },
+      { user_id: 'USR-002', email: 'ops@refurbiq.co.uk', full_name: 'Sam Chen', role: 'WAREHOUSE', last_login: '2026-04-11T07:45:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-003', email: 'finance@refurbiq.co.uk', full_name: 'Priya Patel', role: 'FINANCE', last_login: '2026-04-10T16:30:00Z', is_active: true, mfa_enabled: true },
+      { user_id: 'USR-004', email: 'support@refurbiq.co.uk', full_name: 'Jamie Taylor', role: 'SUPPORT', last_login: '2026-04-11T09:15:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-005', email: 'manager@refurbiq.co.uk', full_name: 'Rachel Brown', role: 'MANAGER', last_login: '2026-04-09T14:00:00Z', is_active: true, mfa_enabled: true },
+    ],
+    usage: { devices_total: 8, devices_limit: 500, orders_mtd: 5, api_calls_today: 847, api_calls_limit_daily: 5000, storage_mb: 142, storage_limit_mb: 5120, active_users: 5, users_limit: 10 },
+    features: { opr_engine: true, vat_engine: true, fintech_advances: true, ai_support_drafts: true, mtd_submission: true, barcode_scanner: true, marketplace_sync: true, multi_currency: true, advanced_analytics: true, white_label: false },
+    notes: 'Demo tenant — all features enabled for showcase.',
+  },
+  {
+    tenant_id: 'TNT-002', company_name: 'EcoPhones UK Ltd',
+    company_number: '09876543', vat_number: 'GB112233445',
+    contact_email: 'hello@ecophones.co.uk',
+    address_line1: '10 Green Lane', address_city: 'Manchester',
+    address_postcode: 'M1 2AB', country: 'GB',
+    plan: 'STARTER', status: 'ACTIVE',
+    subdomain: 'ecophones', created_at: '2026-01-15',
+    subscription_start: '2026-01-15', subscription_renewal: '2027-01-15',
+    monthly_fee: 79, currency: 'GBP', billing_email: 'billing@ecophones.co.uk',
+    stripe_customer_id: 'cus_EcoPhones002',
+    hmrc_vrn: 'GB112233445', hmrc_mtd_authorised: false,
+    xero_connected: false, quickbooks_connected: true,
+    users: [
+      { user_id: 'USR-010', email: 'admin@ecophones.co.uk', full_name: 'Dan Walsh', role: 'ADMIN', last_login: '2026-04-10T10:00:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-011', email: 'ops@ecophones.co.uk', full_name: 'Lucy Hart', role: 'WAREHOUSE', last_login: '2026-04-11T08:30:00Z', is_active: true, mfa_enabled: false },
+    ],
+    usage: { devices_total: 43, devices_limit: 100, orders_mtd: 18, api_calls_today: 122, api_calls_limit_daily: 1000, storage_mb: 34, storage_limit_mb: 512, active_users: 2, users_limit: 3 },
+    features: { opr_engine: false, vat_engine: true, fintech_advances: false, ai_support_drafts: false, mtd_submission: false, barcode_scanner: true, marketplace_sync: true, multi_currency: false, advanced_analytics: false, white_label: false },
+  },
+  {
+    tenant_id: 'TNT-003', company_name: 'DeviceRevive GmbH',
+    company_number: 'HRB 456789', vat_number: 'DE345678901',
+    contact_email: 'info@devicerevive.de',
+    address_line1: 'Hauptstraße 88', address_city: 'Berlin',
+    address_postcode: '10115', country: 'DE',
+    plan: 'ENTERPRISE', status: 'ACTIVE',
+    subdomain: 'devicerevive', created_at: '2025-07-01',
+    subscription_start: '2025-07-01', subscription_renewal: '2026-07-01',
+    monthly_fee: 799, currency: 'EUR', billing_email: 'buchhaltung@devicerevive.de',
+    stripe_customer_id: 'cus_DeviceRevive003',
+    hmrc_vrn: undefined, hmrc_mtd_authorised: false,
+    xero_connected: true, quickbooks_connected: false,
+    users: [
+      { user_id: 'USR-020', email: 'admin@devicerevive.de', full_name: 'Klaus Müller', role: 'ADMIN', last_login: '2026-04-11T07:00:00Z', is_active: true, mfa_enabled: true },
+      { user_id: 'USR-021', email: 'finance@devicerevive.de', full_name: 'Ingrid Schäfer', role: 'FINANCE', last_login: '2026-04-10T15:00:00Z', is_active: true, mfa_enabled: true },
+      { user_id: 'USR-022', email: 'ops1@devicerevive.de', full_name: 'Tobias Klein', role: 'WAREHOUSE', last_login: '2026-04-11T06:45:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-023', email: 'ops2@devicerevive.de', full_name: 'Anna Bauer', role: 'WAREHOUSE', last_login: '2026-04-09T09:00:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-024', email: 'support@devicerevive.de', full_name: 'Markus Wolf', role: 'SUPPORT', last_login: '2026-04-11T08:00:00Z', is_active: true, mfa_enabled: false },
+      { user_id: 'USR-025', email: 'viewer@devicerevive.de', full_name: 'Petra Lang', role: 'READ_ONLY', last_login: '2026-04-08T11:00:00Z', is_active: true, mfa_enabled: false },
+    ],
+    usage: { devices_total: 312, devices_limit: 2000, orders_mtd: 87, api_calls_today: 4210, api_calls_limit_daily: 50000, storage_mb: 1840, storage_limit_mb: 51200, active_users: 6, users_limit: 25 },
+    features: { opr_engine: true, vat_engine: true, fintech_advances: true, ai_support_drafts: true, mtd_submission: false, barcode_scanner: true, marketplace_sync: true, multi_currency: true, advanced_analytics: true, white_label: true },
+    notes: 'Enterprise client — white-label enabled. Custom SLA agreement.',
+  },
+  {
+    tenant_id: 'TNT-004', company_name: 'QuickFlip Mobiles',
+    company_number: '11223344', vat_number: '',
+    contact_email: 'owner@quickflipmobiles.com',
+    address_line1: '5 Market Square', address_city: 'Birmingham',
+    address_postcode: 'B1 1AA', country: 'GB',
+    plan: 'TRIAL', status: 'TRIAL',
+    subdomain: 'quickflip', created_at: '2026-04-01',
+    trial_ends_at: '2026-04-30',
+    monthly_fee: 0, currency: 'GBP', billing_email: 'owner@quickflipmobiles.com',
+    hmrc_vrn: undefined, hmrc_mtd_authorised: false,
+    xero_connected: false, quickbooks_connected: false,
+    users: [
+      { user_id: 'USR-030', email: 'owner@quickflipmobiles.com', full_name: 'Chris Patel', role: 'ADMIN', last_login: '2026-04-11T09:00:00Z', is_active: true, mfa_enabled: false },
+    ],
+    usage: { devices_total: 7, devices_limit: 25, orders_mtd: 3, api_calls_today: 45, api_calls_limit_daily: 500, storage_mb: 8, storage_limit_mb: 100, active_users: 1, users_limit: 2 },
+    features: { opr_engine: false, vat_engine: true, fintech_advances: false, ai_support_drafts: true, mtd_submission: false, barcode_scanner: true, marketplace_sync: false, multi_currency: false, advanced_analytics: false, white_label: false },
+    notes: 'Trial ends 2026-04-30. Sales follow-up scheduled.',
+  },
+  {
+    tenant_id: 'TNT-005', company_name: 'ReStock Pro Ltd',
+    company_number: '55667788', vat_number: 'GB998877001',
+    contact_email: 'admin@restockpro.co.uk',
+    address_line1: '77 Warehouse Road', address_city: 'Leeds',
+    address_postcode: 'LS1 4AB', country: 'GB',
+    plan: 'PROFESSIONAL', status: 'SUSPENDED',
+    subdomain: 'restockpro', created_at: '2025-12-01',
+    subscription_start: '2025-12-01', subscription_renewal: '2026-05-01',
+    monthly_fee: 299, currency: 'GBP', billing_email: 'accounts@restockpro.co.uk',
+    stripe_customer_id: 'cus_ReStockPro005',
+    hmrc_vrn: 'GB998877001', hmrc_mtd_authorised: true,
+    xero_connected: true, quickbooks_connected: false,
+    users: [
+      { user_id: 'USR-040', email: 'admin@restockpro.co.uk', full_name: 'Neil Gibson', role: 'ADMIN', last_login: '2026-03-20T11:00:00Z', is_active: false, mfa_enabled: true },
+    ],
+    usage: { devices_total: 56, devices_limit: 500, orders_mtd: 0, api_calls_today: 0, api_calls_limit_daily: 5000, storage_mb: 210, storage_limit_mb: 5120, active_users: 0, users_limit: 10 },
+    features: { opr_engine: true, vat_engine: true, fintech_advances: true, ai_support_drafts: false, mtd_submission: true, barcode_scanner: true, marketplace_sync: true, multi_currency: false, advanced_analytics: true, white_label: false },
+    notes: 'Suspended due to failed payment (2026-04-01). Grace period expires 2026-04-15.',
+  },
+];
+
+export function getTenantSaaSSummary(): TenantSaaSSummary {
+  const active = tenants.filter(t => t.status === 'ACTIVE').length;
+  const trial = tenants.filter(t => t.status === 'TRIAL').length;
+  const suspended = tenants.filter(t => t.status === 'SUSPENDED').length;
+  const mrr = tenants.filter(t => t.status === 'ACTIVE').reduce((s, t) => s + t.monthly_fee, 0);
+  const avgDevices = Math.round(tenants.reduce((s, t) => s + t.usage.devices_total, 0) / tenants.length);
+  const planBreakdown: Record<string, number> = { STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0, TRIAL: 0 };
+  tenants.forEach(t => { planBreakdown[t.plan] = (planBreakdown[t.plan] || 0) + 1; });
+  return { total_tenants: tenants.length, active_tenants: active, trial_tenants: trial, suspended_tenants: suspended, mrr, arr: mrr * 12, avg_devices_per_tenant: avgDevices, plan_breakdown: planBreakdown as any };
+}
+
+// ── Marketplace Integrations ───────────────────────────────────────────────────
+
+export const marketplaceIntegrations: MarketplaceIntegration[] = [
+  {
+    integration_id: 'MKT-INT-001', company_id: COMPANY_ID,
+    marketplace_name: 'Amazon', marketplace_code: 'AMAZON', logo_color: '#FF9900',
+    status: 'CONNECTED', connected_at: '2025-11-01', last_sync_at: '2026-04-11T09:00:00Z',
+    last_sync_status: 'SYNCED', last_sync_orders: 3, last_sync_errors: 0,
+    total_orders_synced: 847, pending_orders: 1,
+    api_quota_used: 420, api_quota_limit: 2000,
+    seller_id: 'AMZ-SELLER-A3X7K2', store_name: 'RefurbIQ Official Store', region: 'EU',
+    credentials_valid: true, credentials_expiry: '2026-10-01',
+    auto_vat_code: true, auto_drc_check: true, auto_export_detect: true,
+    fee_percent: 14.0, sync_interval_mins: 15,
+    webhook_url: 'https://refurbiq.inventory.platform.com/webhooks/amazon',
+    recent_errors: [],
+    sync_log: [
+      { log_id: 'SL001', timestamp: '2026-04-11T09:00:00Z', direction: 'INBOUND', entity_type: 'Orders', count: 3, status: 'SYNCED', duration_ms: 842, errors: 0 },
+      { log_id: 'SL002', timestamp: '2026-04-11T08:45:00Z', direction: 'OUTBOUND', entity_type: 'Inventory', count: 8, status: 'SYNCED', duration_ms: 420, errors: 0 },
+      { log_id: 'SL003', timestamp: '2026-04-10T18:00:00Z', direction: 'INBOUND', entity_type: 'Orders', count: 1, status: 'SYNCED', duration_ms: 340, errors: 0 },
+    ],
+  },
+  {
+    integration_id: 'MKT-INT-002', company_id: COMPANY_ID,
+    marketplace_name: 'Back Market', marketplace_code: 'BACKMARKET', logo_color: '#00D66B',
+    status: 'CONNECTED', connected_at: '2025-11-15', last_sync_at: '2026-04-11T08:30:00Z',
+    last_sync_status: 'SYNCED', last_sync_orders: 2, last_sync_errors: 0,
+    total_orders_synced: 412, pending_orders: 2,
+    api_quota_used: 128, api_quota_limit: 1000,
+    seller_id: 'BM-SELLER-77432', store_name: 'RefurbIQ Back Market', region: 'EU',
+    credentials_valid: true, credentials_expiry: '2027-01-01',
+    auto_vat_code: true, auto_drc_check: false, auto_export_detect: true,
+    fee_percent: 5.0, sync_interval_mins: 30,
+    webhook_url: 'https://refurbiq.inventory.platform.com/webhooks/backmarket',
+    recent_errors: [],
+    sync_log: [
+      { log_id: 'SL004', timestamp: '2026-04-11T08:30:00Z', direction: 'INBOUND', entity_type: 'Orders', count: 2, status: 'SYNCED', duration_ms: 612, errors: 0 },
+      { log_id: 'SL005', timestamp: '2026-04-11T08:00:00Z', direction: 'OUTBOUND', entity_type: 'Listings', count: 5, status: 'SYNCED', duration_ms: 891, errors: 0 },
+    ],
+  },
+  {
+    integration_id: 'MKT-INT-003', company_id: COMPANY_ID,
+    marketplace_name: 'eBay', marketplace_code: 'EBAY', logo_color: '#E53238',
+    status: 'ERROR', connected_at: '2025-12-01', last_sync_at: '2026-04-10T22:15:00Z',
+    last_sync_status: 'FAILED', last_sync_orders: 0, last_sync_errors: 3,
+    total_orders_synced: 204, pending_orders: 1,
+    api_quota_used: 0, api_quota_limit: 5000,
+    seller_id: 'EBY-USER-refurbiq_uk', store_name: 'RefurbIQ Store', region: 'UK',
+    credentials_valid: false, credentials_expiry: '2026-04-09',
+    auto_vat_code: true, auto_drc_check: true, auto_export_detect: true,
+    fee_percent: 11.9, sync_interval_mins: 30,
+    recent_errors: [
+      { error_id: 'ERR001', timestamp: '2026-04-11T00:00:00Z', code: 'AUTH_TOKEN_EXPIRED', message: 'OAuth token expired (2026-04-09). Re-authentication required.', resolved: false },
+      { error_id: 'ERR002', timestamp: '2026-04-10T22:15:00Z', code: 'SYNC_FAILED_AUTH', message: 'Order sync failed — 401 Unauthorized from eBay Trading API', order_ref: 'EBY-UK-20260410-11290', resolved: false },
+      { error_id: 'ERR003', timestamp: '2026-04-10T22:15:00Z', code: 'LISTING_UPDATE_FAILED', message: 'Unable to update 3 listings — token invalid', resolved: false },
+    ],
+    sync_log: [
+      { log_id: 'SL006', timestamp: '2026-04-10T22:15:00Z', direction: 'INBOUND', entity_type: 'Orders', count: 0, status: 'FAILED', duration_ms: 12000, errors: 3 },
+      { log_id: 'SL007', timestamp: '2026-04-10T21:45:00Z', direction: 'INBOUND', entity_type: 'Orders', count: 1, status: 'PARTIAL', duration_ms: 3200, errors: 1 },
+    ],
+  },
+  {
+    integration_id: 'MKT-INT-004', company_id: COMPANY_ID,
+    marketplace_name: 'Shopify', marketplace_code: 'SHOPIFY', logo_color: '#96BF48',
+    status: 'PENDING_AUTH', connected_at: undefined, last_sync_at: undefined,
+    last_sync_status: 'PENDING', last_sync_orders: 0, last_sync_errors: 0,
+    total_orders_synced: 0, pending_orders: 0,
+    api_quota_used: 0, api_quota_limit: 1000,
+    store_name: 'refurbiq-store.myshopify.com',
+    credentials_valid: false,
+    auto_vat_code: true, auto_drc_check: true, auto_export_detect: true,
+    fee_percent: 2.0, sync_interval_mins: 15,
+    recent_errors: [],
+    sync_log: [],
+  },
+];
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export const notifications: Notification[] = [
+  { notif_id: 'NTF-001', company_id: COMPANY_ID, severity: 'CRITICAL', category: 'OPR', title: 'OPR Batch Expiring in 7 Days', message: 'Batch OPR2025-009 (FixMasters Poland, 8 units) must be reimported or discharged by 2026-04-18. Failure will result in loss of duty relief and potential HMRC penalties.', created_at: '2026-04-11T07:00:00Z', read: false, action_url: '/opr', action_label: 'View OPR Batch', entity_type: 'OPRBatch', entity_id: 'OPR2025-009', auto_dismissed: false },
+  { notif_id: 'NTF-002', company_id: COMPANY_ID, severity: 'CRITICAL', category: 'RMA', title: 'IMEI Mismatch — RMA Frozen', message: 'RMA-2026-007 (Amazon, £6,200): returned IMEI 354678901234999 does not match sold IMEI 354678901234573. All resolution paths frozen. Manager review required immediately.', created_at: '2026-04-08T10:31:00Z', read: false, action_url: '/rma', action_label: 'Review RMA', entity_type: 'RMARecord', entity_id: 'RMA-2026-007', auto_dismissed: false },
+  { notif_id: 'NTF-003', company_id: COMPANY_ID, severity: 'WARNING', category: 'MARKETPLACE', title: 'eBay Token Expired — Sync Stopped', message: 'eBay OAuth token expired on 2026-04-09. Order sync and listing updates are failing. Re-authenticate in Marketplace Integrations to restore connectivity.', created_at: '2026-04-11T00:00:00Z', read: false, action_url: '/marketplace', action_label: 'Fix eBay Auth', entity_type: 'MarketplaceIntegration', entity_id: 'MKT-INT-003', auto_dismissed: false },
+  { notif_id: 'NTF-004', company_id: COMPANY_ID, severity: 'WARNING', category: 'INVENTORY', title: 'Locked Device — Action Required', message: 'DEV008 (iPhone 13 Pro Max, IMEI ...4574): iCloud activation lock detected at intake. Device cannot be sold or repaired until customer provides iCloud removal.', created_at: '2026-03-19T11:16:00Z', read: false, action_url: '/inventory', action_label: 'View Device', entity_type: 'Device', entity_id: 'DEV008', auto_dismissed: false },
+  { notif_id: 'NTF-005', company_id: COMPANY_ID, severity: 'SUCCESS', category: 'COURIER', title: 'Carrier Claim Approved — £680 Recovered', message: 'FedEx damage claim for INV-2026-002 (DEV005 iPhone 15) has been approved. Recovery of £680.00 has been posted to device P&L. Net margin now 137.7%.', created_at: '2026-04-09T15:05:00Z', read: true, read_at: '2026-04-09T15:30:00Z', action_url: '/courier', action_label: 'View Investigation', entity_type: 'CourierInvestigation', entity_id: 'INV-2026-002', auto_dismissed: false },
+  { notif_id: 'NTF-006', company_id: COMPANY_ID, severity: 'INFO', category: 'VAT', title: 'VAT Period Q2 2026 — 3 Warnings', message: 'The open VAT return (Q2 2026) has 3 validation warnings: missing Box 4 input VAT, missing Box 7 purchases, and 2 pending DRC customer notifications. Review before quarter close.', created_at: '2026-04-11T09:00:00Z', read: false, action_url: '/mtd', action_label: 'View MTD Return', entity_type: 'MTDVatReturn', entity_id: 'MTD-2026-Q2', auto_dismissed: false },
+  { notif_id: 'NTF-007', company_id: COMPANY_ID, severity: 'WARNING', category: 'SECURITY', title: 'Failed Login Attempts Detected', message: '3 consecutive failed login attempts for ops@refurbiq.co.uk from IP 45.227.88.12 (2026-04-10 22:17). Account temporarily locked. Review audit log for details.', created_at: '2026-04-10T22:17:00Z', read: true, read_at: '2026-04-11T08:05:00Z', action_url: '/audit', action_label: 'View Audit Log', entity_type: 'User', entity_id: 'ops@refurbiq.co.uk', auto_dismissed: false },
+  { notif_id: 'NTF-008', company_id: COMPANY_ID, severity: 'INFO', category: 'REPAIR', title: 'Repair REP-2026-002 Completed — Grade Upgraded', message: 'Samsung Galaxy S24 Ultra (DEV003) battery replacement complete. Grade upgraded B → A. Device is now AVAILABLE for sale at Grade A pricing.', created_at: '2026-03-16T14:35:00Z', read: true, read_at: '2026-03-16T16:00:00Z', action_url: '/repairs', action_label: 'View Repair Job', entity_type: 'RepairJob', entity_id: 'REP-2026-002', auto_dismissed: false },
+];
+
+export function getNotificationSummary() {
+  const unread = notifications.filter(n => !n.read).length;
+  const critical = notifications.filter(n => n.severity === 'CRITICAL' && !n.read).length;
+  const warning = notifications.filter(n => n.severity === 'WARNING' && !n.read).length;
+  return { total: notifications.length, unread, critical, warning };
+}

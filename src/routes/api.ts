@@ -13,6 +13,9 @@ import {
   getSupplierAnalytics,
   auditLog,
   mtdVatReturns,
+  tenants, getTenantSaaSSummary,
+  marketplaceIntegrations,
+  notifications, getNotificationSummary,
 } from '../lib/data-store.js';
 import {
   VAT_CODE_DEFINITIONS, evaluateDRCThreshold, calculateVat,
@@ -270,4 +273,172 @@ api.get('/mtd-returns/:id/validate', (c) => {
   if (Math.abs(r.box_1 + r.box_2 - r.box_3) > 0.01) errors.push('Box 3 must equal Box 1 + Box 2');
   if (Math.abs(r.box_3 - r.box_4 - r.box_5) > 0.01) errors.push('Box 5 must equal Box 3 − Box 4');
   return c.json({ return_id: r.return_id, valid: errors.length === 0, errors, warnings, can_submit: errors.length === 0 && r.status !== 'ACCEPTED' });
+});
+
+// ── MTD Submit (simulated) ─────────────────────────────────────────────────────
+api.post('/mtd-returns/:id/submit', async (c) => {
+  const r = mtdVatReturns.find(x => x.return_id === c.req.param('id'));
+  if (!r) return c.notFound();
+  if (r.status === 'ACCEPTED') return c.json({ error: 'Already submitted' }, 400);
+  const errors = [...r.validation_errors];
+  if (Math.abs(r.box_1 + r.box_2 - r.box_3) > 0.01) errors.push('Box 3 must equal Box 1 + Box 2');
+  if (errors.length > 0) return c.json({ error: 'Validation failed', errors }, 422);
+  // Simulate HMRC acceptance
+  r.status = 'ACCEPTED';
+  r.submitted_at = new Date().toISOString();
+  r.hmrc_receipt_id = 'HMRC-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+  r.hmrc_processing_date = new Date().toISOString().split('T')[0];
+  return c.json({ success: true, receipt_id: r.hmrc_receipt_id, processing_date: r.hmrc_processing_date, return_id: r.return_id });
+});
+
+// ── Tenants / SaaS Management ─────────────────────────────────────────────────
+api.get('/tenants', (c) => c.json(tenants));
+api.get('/tenants/summary', (c) => c.json(getTenantSaaSSummary()));
+api.get('/tenants/:id', (c) => {
+  const t = tenants.find(x => x.tenant_id === c.req.param('id'));
+  return t ? c.json(t) : c.notFound();
+});
+api.patch('/tenants/:id/status', async (c) => {
+  const t = tenants.find(x => x.tenant_id === c.req.param('id'));
+  if (!t) return c.notFound();
+  const body = await c.req.json();
+  if (body.status) t.status = body.status;
+  return c.json({ success: true, tenant_id: t.tenant_id, status: t.status });
+});
+api.get('/tenants/:id/usage', (c) => {
+  const t = tenants.find(x => x.tenant_id === c.req.param('id'));
+  return t ? c.json(t.usage) : c.notFound();
+});
+
+// ── Marketplace Integrations ──────────────────────────────────────────────────
+api.get('/marketplace', (c) => c.json(marketplaceIntegrations));
+api.get('/marketplace/:id', (c) => {
+  const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));
+  return m ? c.json(m) : c.notFound();
+});
+api.get('/marketplace/stats/summary', (c) => {
+  const total = marketplaceIntegrations.length;
+  const connected = marketplaceIntegrations.filter(m => m.status === 'CONNECTED').length;
+  const errors = marketplaceIntegrations.filter(m => m.status === 'ERROR').length;
+  const totalOrders = marketplaceIntegrations.reduce((s, m) => s + m.total_orders_synced, 0);
+  const pendingOrders = marketplaceIntegrations.reduce((s, m) => s + m.pending_orders, 0);
+  const totalErrors = marketplaceIntegrations.reduce((s, m) => s + m.recent_errors.filter(e => !e.resolved).length, 0);
+  return c.json({ total, connected, errors, disconnected: total - connected - errors, total_orders_synced: totalOrders, pending_orders: pendingOrders, unresolved_errors: totalErrors });
+});
+api.post('/marketplace/:id/reconnect', async (c) => {
+  const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));
+  if (!m) return c.notFound();
+  // Simulate reconnection for demo
+  m.status = 'CONNECTED';
+  m.credentials_valid = true;
+  m.credentials_expiry = '2027-04-11';
+  m.last_sync_at = new Date().toISOString();
+  m.last_sync_status = 'SYNCED';
+  m.recent_errors.forEach(e => e.resolved = true);
+  return c.json({ success: true, integration_id: m.integration_id, status: m.status });
+});
+api.post('/marketplace/:id/sync', async (c) => {
+  const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));
+  if (!m) return c.notFound();
+  if (m.status !== 'CONNECTED') return c.json({ error: 'Integration not connected' }, 400);
+  const newEntry = { log_id: 'SL' + Date.now(), timestamp: new Date().toISOString(), direction: 'INBOUND' as const, entity_type: 'Orders', count: Math.floor(Math.random() * 5), status: 'SYNCED' as const, duration_ms: 400 + Math.floor(Math.random() * 600), errors: 0 };
+  m.sync_log.unshift(newEntry);
+  m.last_sync_at = newEntry.timestamp;
+  m.last_sync_status = 'SYNCED';
+  m.last_sync_orders = newEntry.count;
+  return c.json({ success: true, orders_synced: newEntry.count, duration_ms: newEntry.duration_ms });
+});
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+api.get('/notifications', (c) => {
+  const { unread_only } = c.req.query();
+  let result = [...notifications].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  if (unread_only === 'true') result = result.filter(n => !n.read);
+  return c.json(result);
+});
+api.get('/notifications/summary', (c) => c.json(getNotificationSummary()));
+api.patch('/notifications/:id/read', async (c) => {
+  const n = notifications.find(x => x.notif_id === c.req.param('id'));
+  if (!n) return c.notFound();
+  n.read = true;
+  n.read_at = new Date().toISOString();
+  return c.json({ success: true, notif_id: n.notif_id });
+});
+api.post('/notifications/mark-all-read', async (c) => {
+  notifications.forEach(n => { n.read = true; n.read_at = new Date().toISOString(); });
+  return c.json({ success: true, count: notifications.length });
+});
+
+// ── Enhanced Dashboard (Phase 4) ──────────────────────────────────────────────
+api.get('/dashboard/v2', async (c) => {
+  const base = getDashboardStats();
+  const repairStats = getRepairStats();
+  const pnlSummary = getProfitabilitySummary();
+  const notifSummary = getNotificationSummary();
+  const mktSummary = {
+    connected: marketplaceIntegrations.filter(m => m.status === 'CONNECTED').length,
+    errors: marketplaceIntegrations.filter(m => m.status === 'ERROR').length,
+  };
+  return c.json({ ...base, repair_stats: repairStats, pnl_summary: pnlSummary, notifications: notifSummary, marketplace: mktSummary });
+});
+
+// ── Barcode / IMEI Scanner ────────────────────────────────────────────────────
+api.post('/scanner/lookup', async (c) => {
+  const body = await c.req.json();
+  const { imei, barcode } = body;
+  const query = imei || barcode;
+  if (!query) return c.json({ error: 'imei or barcode required' }, 400);
+
+  // Check existing devices
+  const existing = devices.find(d => (d as any).imei_primary === query || (d as any).imei_secondary === query || (d as any).imei === query || (d as any).imei_2 === query);
+  if (existing) {
+    return c.json({ found: true, type: 'device', device: existing, status: (existing as any).status, action: (existing as any).status === 'AVAILABLE' ? 'READY_TO_SHIP' : (existing as any).status === 'INTAKE_QC_PENDING' ? 'NEEDS_QC' : 'VIEW_DEVICE' });
+  }
+
+  // Check purchase batches (barcode on batch label)
+  const batch = purchaseBatches.find(b => b.purchase_batch_id === query || b.batch_code === query);
+  if (batch) {
+    return c.json({ found: true, type: 'batch', batch, action: 'VIEW_BATCH' });
+  }
+
+  // IMEI lookup — device model inference from IMEI prefix (demo logic)
+  const makeMap: Record<string, { make: string; model: string }> = {
+    '35467890': { make: 'Apple', model: 'iPhone 14' },
+    '35998800': { make: 'Samsung', model: 'Galaxy S24' },
+    '86440012': { make: 'Google', model: 'Pixel 8' },
+    '35123456': { make: 'Apple', model: 'iPhone 15' },
+  };
+  const prefix = query.substring(0, 8);
+  const inferred = makeMap[prefix];
+
+  return c.json({ found: false, imei: query, inferred_make: inferred?.make || null, inferred_model: inferred?.model || null, action: 'CREATE_DEVICE', suggestion: inferred ? `Looks like a ${inferred.make} ${inferred.model} — create intake record?` : 'Unknown device — create intake record manually?' });
+});
+
+api.post('/scanner/intake', async (c) => {
+  const body = await c.req.json();
+  const required = ['imei', 'make', 'model', 'grade', 'storage', 'colour', 'network', 'purchase_batch_id'];
+  const missing = required.filter(f => !body[f]);
+  if (missing.length) return c.json({ error: 'Missing fields: ' + missing.join(', ') }, 400);
+
+  // Check duplicate IMEI
+  if (devices.find(d => (d as any).imei_primary === body.imei || (d as any).imei === body.imei)) {
+    return c.json({ error: 'DUPLICATE_IMEI', message: `IMEI ${body.imei} already exists in system` }, 409);
+  }
+
+  const newId = 'DEV' + String(devices.length + 1).padStart(3, '0') + '-NEW';
+  const batch = purchaseBatches.find(b => b.purchase_batch_id === body.purchase_batch_id);
+  const newDevice = {
+    device_id: newId, company_id: 'REFURBIQ_DEMO',
+    imei: body.imei, imei_2: body.imei_2 || null,
+    make: body.make, model: body.model, storage: body.storage,
+    colour: body.colour, grade: body.grade, network: body.network,
+    supplier_id: batch?.supplier_id || 'SUP001',
+    purchase_batch_id: body.purchase_batch_id,
+    unit_cost: body.unit_cost || 0, vat_code: body.vat_code || '20RC_PURCHASES',
+    status: 'INTAKE_QC_PENDING', custody: 'WAREHOUSE',
+    location: 'Goods-In Bay', created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  (devices as any[]).push(newDevice);
+  return c.json({ success: true, device_id: newId, status: 'INTAKE_QC_PENDING', message: `Device ${newId} created — awaiting QC` });
 });
