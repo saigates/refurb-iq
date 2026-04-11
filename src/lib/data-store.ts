@@ -7,6 +7,9 @@ import type {
   VatPeriod, FintechAdvance, Supplier, QCRecord, SupportTicket, DashboardStats,
   CourierInvestigation, RMARecord, UnitPnL, ProfitabilitySummary,
   RepairJob, RepairStats,
+  SupplierMetric, SupplierAnalyticsSummary,
+  AuditEntry,
+  MTDVatReturn,
 } from '../types/index.js';
 
 const COMPANY_ID = 'REFURBIQ_DEMO';
@@ -629,3 +632,185 @@ export function getRepairStats(): RepairStats {
     recovery_value: Math.round(recoveryValue * 100) / 100,
   };
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 3 DATA — Supplier Analytics, Audit Log, MTD VAT Returns
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Supplier Analytics ────────────────────────────────────────────────────────
+
+export function getSupplierAnalytics(): SupplierAnalyticsSummary {
+  const metrics: SupplierMetric[] = [
+    {
+      supplier_id: 'SUP001', name: 'TechSource Ltd', country: 'GB',
+      vat_number: 'GB123456789', is_active: true,
+      total_purchases: 145200, batch_count: 2, device_count: 92,
+      avg_cost_per_device: 307.50,
+      qc_pass_rate: 96.7, defect_count: 3, return_count: 1,
+      locked_device_count: 1, repair_triggered_count: 2, repair_cost_total: 78,
+      opr_batch_count: 1, opr_device_count: 18, opr_risk_value: 6210,
+      units_sold: 3, gross_revenue: 1630, net_profit: 244.27, avg_margin_percent: 14.99,
+      best_device: 'iPhone 15 (30.3%)', worst_device: 'iPhone 14 Pro (-7.7%)',
+      risk_score: 28, risk_label: 'LOW',
+    },
+    {
+      supplier_id: 'SUP002', name: 'Mobile Wholesale EU', country: 'DE',
+      vat_number: 'DE987654321', is_active: true,
+      total_purchases: 87450, batch_count: 1, device_count: 35,
+      avg_cost_per_device: 249.86,
+      qc_pass_rate: 82.9, defect_count: 6, return_count: 2,
+      locked_device_count: 0, repair_triggered_count: 2, repair_cost_total: 87,
+      opr_batch_count: 0, opr_device_count: 0, opr_risk_value: 0,
+      units_sold: 2, gross_revenue: 965, net_profit: 209.53, avg_margin_percent: 21.71,
+      best_device: 'Galaxy A54 (56.5%)', worst_device: 'Galaxy S24 Ultra (−in stock)',
+      risk_score: 62, risk_label: 'MEDIUM',
+    },
+    {
+      supplier_id: 'SUP003', name: 'PhoneFlip Direct', country: 'GB',
+      vat_number: 'GB555123456', is_active: true,
+      total_purchases: 62300, batch_count: 1, device_count: 28,
+      avg_cost_per_device: 325,
+      qc_pass_rate: 100, defect_count: 0, return_count: 0,
+      locked_device_count: 0, repair_triggered_count: 0, repair_cost_total: 0,
+      opr_batch_count: 0, opr_device_count: 0, opr_risk_value: 0,
+      units_sold: 0, gross_revenue: 0, net_profit: 0, avg_margin_percent: 0,
+      best_device: '—', worst_device: '—',
+      risk_score: 12, risk_label: 'LOW',
+    },
+    {
+      supplier_id: 'SUP004', name: 'Horizon Devices', country: 'US',
+      vat_number: '', is_active: false,
+      total_purchases: 34100, batch_count: 3, device_count: 41,
+      avg_cost_per_device: 271.54,
+      qc_pass_rate: 71.0, defect_count: 12, return_count: 5,
+      locked_device_count: 2, repair_triggered_count: 6, repair_cost_total: 340,
+      opr_batch_count: 0, opr_device_count: 0, opr_risk_value: 0,
+      units_sold: 0, gross_revenue: 0, net_profit: 0, avg_margin_percent: 0,
+      best_device: '—', worst_device: '—',
+      risk_score: 88, risk_label: 'CRITICAL',
+    },
+  ];
+
+  const active = metrics.filter(m => m.is_active);
+  return {
+    total_suppliers: metrics.length,
+    active_suppliers: active.length,
+    total_spend: metrics.reduce((s, m) => s + m.total_purchases, 0),
+    total_devices_from_suppliers: metrics.reduce((s, m) => s + m.device_count, 0),
+    avg_qc_pass_rate: Math.round(active.reduce((s, m) => s + m.qc_pass_rate, 0) / active.length * 10) / 10,
+    highest_margin_supplier: 'Mobile Wholesale EU (21.7% avg margin)',
+    highest_risk_supplier: 'Horizon Devices (score 88 / CRITICAL — inactive)',
+    metrics,
+  };
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export const auditLog: AuditEntry[] = [
+  // Auth
+  { audit_id: 'AUD-0001', company_id: COMPANY_ID, timestamp: '2026-04-11T08:00:00Z', module: 'AUTH', severity: 'INFO', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: 'User login', entity_type: 'User', entity_id: 'admin@refurbiq.co.uk', system_generated: false, ip_address: '82.44.112.56', session_id: 'SES-001' },
+  // Inventory
+  { audit_id: 'AUD-0002', company_id: COMPANY_ID, timestamp: '2026-03-05T09:15:00Z', module: 'INVENTORY', severity: 'INFO', actor: 'ops@refurbiq.co.uk', actor_role: 'WAREHOUSE', action: 'Device received into warehouse', entity_type: 'Device', entity_id: 'DEV001', after_state: { status: 'RECEIVED', custody: 'WAREHOUSE' }, system_generated: false },
+  { audit_id: 'AUD-0003', company_id: COMPANY_ID, timestamp: '2026-03-06T10:30:00Z', module: 'QC', severity: 'INFO', actor: 'ops@refurbiq.co.uk', actor_role: 'WAREHOUSE', action: 'Intake QC passed — Grade A assigned', entity_type: 'Device', entity_id: 'DEV001', before_state: { status: 'INTAKE_QC_PENDING', grade: null }, after_state: { status: 'AVAILABLE', grade: 'A', lock_check: 'CLEAR' }, system_generated: false },
+  { audit_id: 'AUD-0004', company_id: COMPANY_ID, timestamp: '2026-03-19T11:15:00Z', module: 'QC', severity: 'CRITICAL', actor: 'ops@refurbiq.co.uk', actor_role: 'WAREHOUSE', action: 'Intake QC BLOCKED — iCloud lock detected. Device status set to LOCKED. All sale paths blocked.', entity_type: 'Device', entity_id: 'DEV008', before_state: { status: 'INTAKE_QC_PENDING' }, after_state: { status: 'LOCKED', lock_check: 'LOCKED', outcome: 'LOCKED_BLOCKED' }, system_generated: false },
+  // VAT critical changes
+  { audit_id: 'AUD-0005', company_id: COMPANY_ID, timestamp: '2026-04-07T14:00:00Z', module: 'VAT', severity: 'CRITICAL', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: 'VAT period VP2026-Q1 locked and submitted to HMRC', entity_type: 'VatPeriod', entity_id: 'VP2026-Q1', before_state: { status: 'OPEN' }, after_state: { status: 'LOCKED', submitted_by: 'admin@refurbiq.co.uk', submitted_at: '2026-04-07T14:00:00Z' }, system_generated: false },
+  { audit_id: 'AUD-0006', company_id: COMPANY_ID, timestamp: '2026-04-02T10:15:00Z', module: 'VAT', severity: 'WARNING', actor: 'system', actor_role: 'SYSTEM', action: 'DRC threshold triggered — VAT code escalated to 0RCS_SALES for order ORD-AMZ-88754 (net value £5,167 ≥ £5,000)', entity_type: 'Order', entity_id: 'ORD-AMZ-88754', before_state: { vat_code: '20S_SALES' }, after_state: { vat_code: '0RCS_SALES', override_reason: 'DRC threshold' }, system_generated: true },
+  { audit_id: 'AUD-0007', company_id: COMPANY_ID, timestamp: '2026-04-01T09:05:00Z', module: 'VAT', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Export VAT override applied — delivery country FR, VAT code set to 0EXPORT_SALES', entity_type: 'Order', entity_id: 'ORD-BM-44221', after_state: { vat_code: '0EXPORT_SALES', override_reason: 'Export: delivery to FR' }, system_generated: true },
+  // OPR
+  { audit_id: 'AUD-0008', company_id: COMPANY_ID, timestamp: '2026-02-15T08:30:00Z', module: 'OPR', severity: 'INFO', actor: 'ops@refurbiq.co.uk', actor_role: 'WAREHOUSE', action: 'OPR batch exported — MRN: GB2026-EX-441122. 18 devices dispatched to EuroRepair Solutions.', entity_type: 'OPRBatch', entity_id: 'OPR2026-001', after_state: { status: 'EXPORTED', awb: 'DHL-GB-778899' }, system_generated: false },
+  { audit_id: 'AUD-0009', company_id: COMPANY_ID, timestamp: '2026-04-11T09:00:00Z', module: 'OPR', severity: 'CRITICAL', actor: 'system', actor_role: 'SYSTEM', action: 'OPR EXPIRY ALERT — Batch OPR2025-009 expires in 7 days (2026-04-18). Immediate action required.', entity_type: 'OPRBatch', entity_id: 'OPR2025-009', system_generated: true, notes: 'If not reimported by 2026-04-18, full duty relief will be lost and customs penalties may apply.' },
+  // RMA mismatch
+  { audit_id: 'AUD-0010', company_id: COMPANY_ID, timestamp: '2026-04-08T10:31:00Z', module: 'RMA', severity: 'CRITICAL', actor: 'system', actor_role: 'SYSTEM', action: 'IMEI MISMATCH DETECTED — RMA-2026-007. Sold IMEI: 354678901234573. Returned IMEI: 354678901234999. All resolution paths FROZEN.', entity_type: 'RMARecord', entity_id: 'RMA-2026-007', before_state: { status: 'IN_TRANSIT_BACK' }, after_state: { status: 'IMEI_MISMATCH', frozen: true }, system_generated: true },
+  // Orders / Fintech
+  { audit_id: 'AUD-0011', company_id: COMPANY_ID, timestamp: '2026-04-01T09:10:00Z', module: 'FINTECH', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Fintech advance issued — 80% of £520 = £416. Fee: £8.11. Net received: £407.89. vat_record_id = NULL (advance is not a VAT event).', entity_type: 'FintechAdvance', entity_id: 'FT001', system_generated: true },
+  { audit_id: 'AUD-0012', company_id: COMPANY_ID, timestamp: '2026-04-03T14:00:00Z', module: 'ORDERS', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Order received from Amazon marketplace. Tax point set to sale date 2026-04-03.', entity_type: 'Order', entity_id: 'ORD-AMZ-88800', after_state: { status: 'PROCESSING', tax_point: '2026-04-03' }, system_generated: true },
+  // Courier
+  { audit_id: 'AUD-0013', company_id: COMPANY_ID, timestamp: '2026-04-09T15:05:00Z', module: 'COURIER', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Carrier claim approved — £680 recovery for INV-2026-002 (FedEx damage claim). Recovery posted to device DEV005 P&L.', entity_type: 'CourierInvestigation', entity_id: 'INV-2026-002', after_state: { status: 'CLAIM_APPROVED', recovery: 680 }, system_generated: true },
+  // Repairs
+  { audit_id: 'AUD-0014', company_id: COMPANY_ID, timestamp: '2026-03-16T14:35:00Z', module: 'REPAIRS', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Repair REP-2026-002 completed — Grade upgraded B → A. Device DEV003 status set to AVAILABLE.', entity_type: 'RepairJob', entity_id: 'REP-2026-002', before_state: { grade: 'B', status: 'IN_PROGRESS' }, after_state: { grade: 'A', status: 'AVAILABLE', outcome: 'UPGRADED_GRADE' }, system_generated: true },
+  { audit_id: 'AUD-0015', company_id: COMPANY_ID, timestamp: '2026-04-09T09:05:00Z', module: 'REPAIRS', severity: 'WARNING', actor: 'system', actor_role: 'SYSTEM', action: 'Repair REP-2026-004 completed — Grade DOWNGRADED A → B. Additional cosmetic damage found post-repair. Device relisted at Grade B.', entity_type: 'RepairJob', entity_id: 'REP-2026-004', before_state: { grade: 'A' }, after_state: { grade: 'B', outcome: 'DOWNGRADED_GRADE' }, system_generated: true },
+  // Security
+  { audit_id: 'AUD-0016', company_id: COMPANY_ID, timestamp: '2026-04-10T22:17:00Z', module: 'AUTH', severity: 'SECURITY', actor: 'unknown', actor_role: 'UNKNOWN', action: 'Failed login attempt — 3 consecutive failures for user ops@refurbiq.co.uk. Account temporarily locked.', entity_type: 'User', entity_id: 'ops@refurbiq.co.uk', system_generated: true, ip_address: '45.227.88.12' },
+  { audit_id: 'AUD-0017', company_id: COMPANY_ID, timestamp: '2026-04-07T09:00:00Z', module: 'VAT', severity: 'WARNING', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: 'VAT code manually overridden on VAT001 — requires manager sign-off. Reason: Export reclassification.', entity_type: 'VatRecord', entity_id: 'VAT001', before_state: { vat_code: '20S_SALES' }, after_state: { vat_code: '0EXPORT_SALES', override_by: 'admin@refurbiq.co.uk' }, system_generated: false },
+  { audit_id: 'AUD-0018', company_id: COMPANY_ID, timestamp: '2026-04-11T07:58:00Z', module: 'SYSTEM', severity: 'INFO', actor: 'system', actor_role: 'SYSTEM', action: 'Daily backup completed — operational data 6yr retention policy verified. OPR documents 4yr. VAT records 6yr. Audit logs 2yr.', entity_type: 'System', entity_id: 'BACKUP-20260411', system_generated: true },
+];
+
+// ── MTD VAT Returns ───────────────────────────────────────────────────────────
+
+export const mtdVatReturns: MTDVatReturn[] = [
+  {
+    return_id: 'MTD-2026-Q1',
+    company_id: COMPANY_ID,
+    vat_period_id: 'VP2026-Q1',
+    period_start: '2026-01-01',
+    period_end: '2026-03-31',
+    period_key: '26AA',
+    status: 'ACCEPTED',
+    box_1: 3208.75,
+    box_2: 0,
+    box_3: 3208.75,
+    box_4: 3835,
+    box_5: -626.25,
+    box_6: 6347,
+    box_7: 15600,
+    box_8: 1200,
+    box_9: 0,
+    prepared_by: 'admin@refurbiq.co.uk',
+    prepared_at: '2026-04-05T10:00:00Z',
+    reviewed_by: 'finance@refurbiq.co.uk',
+    reviewed_at: '2026-04-06T14:30:00Z',
+    approved_by: 'director@refurbiq.co.uk',
+    approved_at: '2026-04-07T09:00:00Z',
+    submitted_at: '2026-04-07T14:00:00Z',
+    hmrc_receipt_id: 'HMRC-RCT-2026-884411',
+    hmrc_correlation_id: 'COR-20260407-77322',
+    hmrc_processing_date: '2026-04-07',
+    validation_errors: [],
+    validation_warnings: [],
+    finalised: true,
+    payment_due_date: '2026-05-07',
+    payment_amount: 0,
+    payment_reference: 'REFUND-626.25',
+  },
+  {
+    return_id: 'MTD-2026-Q2',
+    company_id: COMPANY_ID,
+    vat_period_id: 'VP2026-Q2',
+    period_start: '2026-04-01',
+    period_end: '2026-06-30',
+    period_key: '26AB',
+    status: 'DRAFT',
+    box_1: 88.75,
+    box_2: 0,
+    box_3: 88.75,
+    box_4: 0,
+    box_5: 88.75,
+    box_6: 6347,
+    box_7: 0,
+    box_8: 1200,
+    box_9: 0,
+    prepared_by: undefined,
+    prepared_at: undefined,
+    reviewed_by: undefined,
+    reviewed_at: undefined,
+    approved_by: undefined,
+    approved_at: undefined,
+    submitted_at: undefined,
+    hmrc_receipt_id: undefined,
+    hmrc_correlation_id: undefined,
+    hmrc_processing_date: undefined,
+    validation_errors: [
+      'Period is not yet closed — return cannot be submitted until 2026-07-01',
+    ],
+    validation_warnings: [
+      'Box 4 (input VAT) is £0 — verify no purchase VAT reclaim has been missed',
+      'Box 7 (purchases) is £0 — verify supplier invoices have been reconciled',
+      '2 orders have DRC (0RCS_SALES) applied — ensure customer has been notified per HMRC requirements',
+    ],
+    finalised: false,
+    payment_due_date: '2026-08-07',
+    payment_amount: 88.75,
+    payment_reference: undefined,
+  },
+];

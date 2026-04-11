@@ -10,6 +10,9 @@ import {
   qcRecords, supportTickets, getDashboardStats,
   courierInvestigations, rmaRecords, unitPnLRecords, getProfitabilitySummary,
   repairJobs, getRepairStats,
+  getSupplierAnalytics,
+  auditLog,
+  mtdVatReturns,
 } from '../lib/data-store.js';
 import {
   VAT_CODE_DEFINITIONS, evaluateDRCThreshold, calculateVat,
@@ -213,4 +216,58 @@ api.get('/repairs/stats/summary', (c) => c.json(getRepairStats()));
 api.get('/repairs/:id', (c) => {
   const r = repairJobs.find(x => x.repair_id === c.req.param('id'));
   return r ? c.json(r) : c.notFound();
+});
+
+// ── Supplier Analytics ─────────────────────────────────────────────────────────
+api.get('/supplier-analytics', (c) => c.json(getSupplierAnalytics()));
+api.get('/supplier-analytics/:id', (c) => {
+  const analytics = getSupplierAnalytics();
+  const metric = analytics.metrics.find(m => m.supplier_id === c.req.param('id'));
+  return metric ? c.json(metric) : c.notFound();
+});
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+api.get('/audit-log', (c) => {
+  const { module, severity, actor, limit } = c.req.query();
+  let result = [...auditLog].sort((a, b) =>
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  if (module) result = result.filter(e => e.module === module);
+  if (severity) result = result.filter(e => e.severity === severity);
+  if (actor) result = result.filter(e => e.actor.includes(actor));
+  const n = parseInt(limit || '50');
+  return c.json({ total: result.length, entries: result.slice(0, n) });
+});
+api.get('/audit-log/:id', (c) => {
+  const e = auditLog.find(x => x.audit_id === c.req.param('id'));
+  return e ? c.json(e) : c.notFound();
+});
+api.get('/audit-log/stats/summary', (c) => {
+  const bySeverity = { INFO: 0, WARNING: 0, CRITICAL: 0, SECURITY: 0 };
+  const byModule: Record<string, number> = {};
+  for (const e of auditLog) {
+    bySeverity[e.severity] = (bySeverity[e.severity] || 0) + 1;
+    byModule[e.module] = (byModule[e.module] || 0) + 1;
+  }
+  const recent = [...auditLog].sort((a, b) =>
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  ).slice(0, 5);
+  return c.json({ total: auditLog.length, bySeverity, byModule, recent });
+});
+
+// ── MTD VAT Returns ───────────────────────────────────────────────────────────
+api.get('/mtd-returns', (c) => c.json(mtdVatReturns));
+api.get('/mtd-returns/:id', (c) => {
+  const r = mtdVatReturns.find(x => x.return_id === c.req.param('id'));
+  return r ? c.json(r) : c.notFound();
+});
+api.get('/mtd-returns/:id/validate', (c) => {
+  const r = mtdVatReturns.find(x => x.return_id === c.req.param('id'));
+  if (!r) return c.notFound();
+  const errors = [...r.validation_errors];
+  const warnings = [...r.validation_warnings];
+  // Computed validations
+  if (Math.abs(r.box_1 + r.box_2 - r.box_3) > 0.01) errors.push('Box 3 must equal Box 1 + Box 2');
+  if (Math.abs(r.box_3 - r.box_4 - r.box_5) > 0.01) errors.push('Box 5 must equal Box 3 − Box 4');
+  return c.json({ return_id: r.return_id, valid: errors.length === 0, errors, warnings, can_submit: errors.length === 0 && r.status !== 'ACCEPTED' });
 });

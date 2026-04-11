@@ -552,3 +552,137 @@ export interface RepairStats {
   economically_unviable: number;
   recovery_value: number;
 }
+
+// ── Supplier Analytics ────────────────────────────────────────────────────────
+
+export interface SupplierMetric {
+  supplier_id: string;
+  name: string;
+  country: string;
+  vat_number: string;
+  is_active: boolean;
+  total_purchases: number;
+  batch_count: number;
+  device_count: number;
+  avg_cost_per_device: number;
+  // Quality
+  qc_pass_rate: number;          // 0–100 %
+  defect_count: number;
+  return_count: number;
+  locked_device_count: number;
+  repair_triggered_count: number;
+  repair_cost_total: number;
+  // OPR
+  opr_batch_count: number;
+  opr_device_count: number;
+  opr_risk_value: number;        // total landed cost in active OPR
+  // Margin contribution
+  units_sold: number;
+  gross_revenue: number;
+  net_profit: number;
+  avg_margin_percent: number;
+  best_device: string;
+  worst_device: string;
+  // Risk score (computed 0–100)
+  risk_score: number;
+  risk_label: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+export interface SupplierAnalyticsSummary {
+  total_suppliers: number;
+  active_suppliers: number;
+  total_spend: number;
+  total_devices_from_suppliers: number;
+  avg_qc_pass_rate: number;
+  highest_margin_supplier: string;
+  highest_risk_supplier: string;
+  metrics: SupplierMetric[];
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export type AuditModule =
+  | 'INVENTORY'
+  | 'QC'
+  | 'OPR'
+  | 'ORDERS'
+  | 'VAT'
+  | 'FINTECH'
+  | 'SUPPLIERS'
+  | 'SUPPORT'
+  | 'COURIER'
+  | 'RMA'
+  | 'REPAIRS'
+  | 'SYSTEM'
+  | 'AUTH';
+
+export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
+
+export interface AuditEntry {
+  audit_id: string;
+  company_id: string;
+  timestamp: string;
+  module: AuditModule;
+  severity: AuditSeverity;
+  actor: string;
+  actor_role: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  before_state?: Record<string, unknown>;
+  after_state?: Record<string, unknown>;
+  ip_address?: string;
+  session_id?: string;
+  system_generated: boolean;
+  notes?: string;
+}
+
+// ── HMRC MTD VAT ──────────────────────────────────────────────────────────────
+
+export type MTDSubmissionStatus =
+  | 'DRAFT'
+  | 'REVIEW_PENDING'
+  | 'MANAGER_APPROVED'
+  | 'SUBMITTED'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'AMENDED';
+
+export interface MTDVatReturn {
+  return_id: string;
+  company_id: string;
+  vat_period_id: string;
+  period_start: string;
+  period_end: string;
+  period_key: string;          // HMRC period key e.g. "24AA"
+  status: MTDSubmissionStatus;
+  // HMRC 9 boxes
+  box_1: number;   // VAT due on sales
+  box_2: number;   // VAT due on EC acquisitions
+  box_3: number;   // Total VAT due (box1 + box2)
+  box_4: number;   // VAT reclaimed
+  box_5: number;   // Net VAT (box3 - box4, if +ve = payable)
+  box_6: number;   // Total value of sales exc. VAT
+  box_7: number;   // Total value of purchases exc. VAT
+  box_8: number;   // Total value of EC supplies
+  box_9: number;   // Total value of EC acquisitions
+  // Audit trail
+  prepared_by?: string;
+  prepared_at?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  approved_by?: string;
+  approved_at?: string;
+  submitted_at?: string;
+  hmrc_receipt_id?: string;
+  hmrc_correlation_id?: string;
+  hmrc_processing_date?: string;
+  // Validation
+  validation_errors: string[];
+  validation_warnings: string[];
+  // Finalisation
+  finalised: boolean;
+  payment_due_date?: string;
+  payment_amount?: number;
+  payment_reference?: string;
+}

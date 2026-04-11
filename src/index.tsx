@@ -180,6 +180,24 @@ function getIndexHTML(): string {
       <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">4</span>
     </button>
 
+    <button onclick="navigateTo('supplier-analytics')" id="nav-supplier-analytics" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-chart-pie w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Supplier Analytics</span>
+    </button>
+
+    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mt-3">Compliance & System</div>
+
+    <button onclick="navigateTo('mtd')" id="nav-mtd" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-paper-plane w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>HMRC MTD Returns</span>
+      <span class="ml-auto bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">1</span>
+    </button>
+
+    <button onclick="navigateTo('audit')" id="nav-audit" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-history w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Audit Log</span>
+    </button>
+
     <button onclick="navigateTo('admin')" id="nav-admin" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
       <i class="fas fa-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
       <span>Admin & Settings</span>
@@ -192,7 +210,7 @@ function getIndexHTML(): string {
       <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
       <span>System Operational</span>
     </div>
-    <div class="mt-1">v2.2.0 · Phase 2 Complete</div>
+    <div class="mt-1">v2.3.0 · Phase 3 Build</div>
   </div>
 </aside>
 
@@ -403,6 +421,9 @@ function navigateTo(page) {
     rma: ['Returns & RMA', 'Return QC & Resolution Workflow'],
     profitability: ['Profitability & P&L', 'Unit Economics & Margin Analytics'],
     repairs: ['Repairs & Refurbishment', 'Job Management & Grade Outcomes'],
+    'supplier-analytics': ['Supplier Analytics', 'Purchase Intelligence & Risk Scoring'],
+    mtd: ['HMRC MTD VAT Returns', 'Making Tax Digital Submission Workflow'],
+    audit: ['Audit Log', 'Immutable System Event Trail'],
     admin: ['Admin & Settings', 'System Configuration'],
   };
   const [title, sub] = pages[page] || ['RefurbIQ', ''];
@@ -424,6 +445,9 @@ function navigateTo(page) {
     rma: renderRMA,
     profitability: renderProfitability,
     repairs: renderRepairs,
+    'supplier-analytics': renderSupplierAnalytics,
+    mtd: renderMTD,
+    audit: renderAuditLog,
     admin: renderAdmin,
   };
   
@@ -3024,6 +3048,482 @@ async function showRepairDetail(repairId) {
     </div>
   \`;
   openModal(\`Repair Job: \${repairId} — \${r.make} \${r.model}\`, body);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: SUPPLIER ANALYTICS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderSupplierAnalytics() {
+  const data = await axios.get(API + '/supplier-analytics').then(r => r.data);
+  const { metrics, ...summary } = data;
+  window._supplierMetrics = metrics;
+
+  const riskColor = (label) => ({ LOW: 'text-emerald-400', MEDIUM: 'text-amber-400', HIGH: 'text-orange-400', CRITICAL: 'text-red-400' }[label] || 'text-gray-400');
+  const riskBg = (label) => ({ LOW: 'bg-emerald-500/20 border-emerald-500/30', MEDIUM: 'bg-amber-500/20 border-amber-500/30', HIGH: 'bg-orange-500/20 border-orange-500/30', CRITICAL: 'bg-red-500/20 border-red-500/30' }[label] || 'bg-gray-500/20');
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Summary KPIs -->
+      <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+        \${statCard('Total Suppliers', summary.total_suppliers, 'fa-building', 'bg-blue-600', \`\${summary.active_suppliers} active\`)}
+        \${statCard('Total Spend', fmt(summary.total_spend), 'fa-pound-sign', 'bg-purple-600', 'All time')}
+        \${statCard('Devices Sourced', summary.total_devices_from_suppliers, 'fa-mobile-alt', 'bg-indigo-600', 'All batches')}
+        \${statCard('Avg QC Pass Rate', summary.avg_qc_pass_rate + '%', 'fa-microscope', summary.avg_qc_pass_rate >= 90 ? 'bg-emerald-600' : 'bg-amber-600', 'Active suppliers')}
+        \${statCard('Highest Risk', 'CRITICAL', 'fa-exclamation-triangle', 'bg-red-600', 'Horizon Devices')}
+      </div>
+
+      <!-- Insights Bar -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div class="bg-emerald-900/20 border border-emerald-700/40 rounded-xl px-5 py-3 flex items-start gap-3">
+          <i class="fas fa-trophy text-emerald-400 mt-0.5"></i>
+          <div>
+            <div class="text-sm font-semibold text-emerald-300">Best Margin Supplier</div>
+            <div class="text-xs text-gray-400 mt-0.5">\${summary.highest_margin_supplier}</div>
+          </div>
+        </div>
+        <div class="bg-red-900/20 border border-red-700/40 rounded-xl px-5 py-3 flex items-start gap-3">
+          <i class="fas fa-shield-alt text-red-400 mt-0.5"></i>
+          <div>
+            <div class="text-sm font-semibold text-red-300">Highest Risk Supplier</div>
+            <div class="text-xs text-gray-400 mt-0.5">\${summary.highest_risk_supplier}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Supplier Cards -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5" id="supplier-analytics-grid">
+        \${metrics.map(m => \`
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 card-hover cursor-pointer" onclick="showSupplierDetail('\${m.supplier_id}')">
+            <!-- Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center font-bold text-white text-sm">\${m.name.substring(0,2)}</div>
+                <div>
+                  <div class="font-bold text-white">\${m.name}</div>
+                  <div class="text-xs text-gray-400">\${m.country} · \${m.vat_number || 'No VAT'} \${!m.is_active ? '<span class="text-red-400 ml-1">INACTIVE</span>' : ''}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-gray-400 mb-1">Risk Score</div>
+                <div class="flex items-center gap-1.5">
+                  <div class="text-xl font-bold \${riskColor(m.risk_label)}">\${m.risk_score}</div>
+                  <span class="text-xs px-2 py-0.5 rounded-full border \${riskBg(m.risk_label)} \${riskColor(m.risk_label)}">\${m.risk_label}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk bar -->
+            <div class="mb-4">
+              <div class="flex justify-between text-xs text-gray-500 mb-1"><span>Risk Score</span><span>\${m.risk_score}/100</span></div>
+              <div class="w-full bg-gray-800 rounded-full h-2">
+                <div class="h-2 rounded-full \${m.risk_score >= 75 ? 'bg-red-500' : m.risk_score >= 50 ? 'bg-amber-500' : m.risk_score >= 25 ? 'bg-blue-500' : 'bg-emerald-500'}" style="width:\${m.risk_score}%"></div>
+              </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-3 gap-3 mb-4">
+              <div class="bg-gray-800/70 rounded-lg p-2.5 text-center">
+                <div class="text-lg font-bold text-white">\${m.batch_count}</div>
+                <div class="text-xs text-gray-400">Batches</div>
+              </div>
+              <div class="bg-gray-800/70 rounded-lg p-2.5 text-center">
+                <div class="text-lg font-bold text-white">\${m.device_count}</div>
+                <div class="text-xs text-gray-400">Devices</div>
+              </div>
+              <div class="bg-gray-800/70 rounded-lg p-2.5 text-center">
+                <div class="text-lg font-bold text-white">\${fmt(m.avg_cost_per_device)}</div>
+                <div class="text-xs text-gray-400">Avg Cost</div>
+              </div>
+            </div>
+
+            <!-- Quality bar -->
+            <div class="mb-3">
+              <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span>QC Pass Rate</span>
+                <span class="\${m.qc_pass_rate >= 90 ? 'text-emerald-400' : m.qc_pass_rate >= 75 ? 'text-amber-400' : 'text-red-400'} font-bold">\${m.qc_pass_rate}%</span>
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-2">
+                <div class="h-2 rounded-full \${m.qc_pass_rate >= 90 ? 'bg-emerald-500' : m.qc_pass_rate >= 75 ? 'bg-amber-500' : 'bg-red-500'} progress-bar" style="width:\${m.qc_pass_rate}%"></div>
+              </div>
+            </div>
+
+            <!-- Stats row -->
+            <div class="flex flex-wrap gap-3 text-xs text-gray-400 border-t border-gray-800 pt-3">
+              <span><i class="fas fa-exclamation-circle text-red-400 mr-1"></i>\${m.defect_count} defects</span>
+              <span><i class="fas fa-undo text-orange-400 mr-1"></i>\${m.return_count} returns</span>
+              <span><i class="fas fa-tools text-amber-400 mr-1"></i>\${m.repair_triggered_count} repairs</span>
+              <span><i class="fas fa-pound-sign text-amber-400 mr-1"></i>\${fmt(m.repair_cost_total)} repair cost</span>
+              \${m.opr_device_count > 0 ? \`<span class="text-cyan-400"><i class="fas fa-globe-europe mr-1"></i>\${m.opr_device_count} in OPR</span>\` : ''}
+              \${m.locked_device_count > 0 ? \`<span class="text-red-400"><i class="fas fa-lock mr-1"></i>\${m.locked_device_count} locked</span>\` : ''}
+            </div>
+
+            <!-- Margin (if sold) -->
+            \${m.units_sold > 0 ? \`
+              <div class="mt-3 grid grid-cols-3 gap-2 bg-gray-800/40 rounded-lg p-3">
+                <div class="text-center"><div class="text-xs text-gray-400">Units Sold</div><div class="font-bold text-white">\${m.units_sold}</div></div>
+                <div class="text-center"><div class="text-xs text-gray-400">Revenue</div><div class="font-bold text-white">\${fmt(m.gross_revenue)}</div></div>
+                <div class="text-center"><div class="text-xs text-gray-400">Avg Margin</div><div class="font-bold \${m.avg_margin_percent >= 20 ? 'text-emerald-400' : m.avg_margin_percent >= 0 ? 'text-amber-400' : 'text-red-400'}">\${m.avg_margin_percent.toFixed(1)}%</div></div>
+              </div>
+            \` : '<div class="mt-3 text-center text-xs text-gray-500 py-2 bg-gray-800/30 rounded-lg">No units sold yet from this supplier</div>'}
+          </div>
+        \`).join('')}
+      </div>
+
+      <!-- Comparison Chart -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-400"></i> Supplier Comparison — QC Pass Rate vs Risk Score</h3>
+        <canvas id="supplierChart" height="120"></canvas>
+      </div>
+
+      <!-- OPR Exposure -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-globe-europe text-cyan-400"></i> OPR Exposure by Supplier</h3>
+        \${table(
+          ['Supplier', 'OPR Batches', 'Devices in OPR', 'Risk Value (Landed Cost)', 'Status'],
+          metrics.map(m => [
+            \`<span class="text-white font-medium">\${m.name}</span>\`,
+            m.opr_batch_count > 0 ? \`<span class="text-cyan-400 font-bold">\${m.opr_batch_count}</span>\` : '<span class="text-gray-600">—</span>',
+            m.opr_device_count > 0 ? \`<span class="text-cyan-400">\${m.opr_device_count}</span>\` : '<span class="text-gray-600">—</span>',
+            m.opr_risk_value > 0 ? \`<span class="text-amber-400 font-bold">\${fmt(m.opr_risk_value)}</span>\` : '<span class="text-gray-600">—</span>',
+            m.opr_batch_count > 0 ? '<span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">ACTIVE</span>' : '<span class="text-xs text-gray-600">None</span>',
+          ])
+        )}
+      </div>
+    </div>
+  \`;
+
+  setTimeout(() => renderSupplierChart(metrics), 100);
+}
+
+function renderSupplierChart(metrics) {
+  const ctx = document.getElementById('supplierChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: metrics.map(m => m.name),
+      datasets: [
+        { label: 'QC Pass Rate %', data: metrics.map(m => m.qc_pass_rate), backgroundColor: '#10b98166', borderColor: '#10b981', borderWidth: 1.5, yAxisID: 'y' },
+        { label: 'Risk Score', data: metrics.map(m => m.risk_score), backgroundColor: '#ef444466', borderColor: '#ef4444', borderWidth: 1.5, yAxisID: 'y2' },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+        y: { position: 'left', min: 0, max: 100, ticks: { color: '#10b981', callback: v => v + '%' }, grid: { color: '#1f2937' } },
+        y2: { position: 'right', min: 0, max: 100, ticks: { color: '#ef4444' }, grid: { drawOnChartArea: false } },
+      }
+    }
+  });
+}
+
+async function showSupplierDetail(supplierId) {
+  const m = await axios.get(API + '/supplier-analytics/' + supplierId).then(r => r.data);
+  const riskColor = { LOW: 'text-emerald-400', MEDIUM: 'text-amber-400', HIGH: 'text-orange-400', CRITICAL: 'text-red-400' }[m.risk_label] || 'text-gray-400';
+  const body = \`
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div><div class="text-xs text-gray-400">Country</div><div class="text-white">\${m.country}</div></div>
+        <div><div class="text-xs text-gray-400">VAT Number</div><div class="text-white font-mono">\${m.vat_number || '—'}</div></div>
+        <div><div class="text-xs text-gray-400">Status</div><div>\${m.is_active ? '<span class="text-emerald-400">Active</span>' : '<span class="text-red-400">Inactive</span>'}</div></div>
+        <div><div class="text-xs text-gray-400">Risk Score</div><div class="font-bold \${riskColor}">\${m.risk_score}/100 (\${m.risk_label})</div></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">Total Spend</div><div class="text-lg font-bold text-white">\${fmt(m.total_purchases)}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">Devices</div><div class="text-lg font-bold text-white">\${m.device_count}</div></div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">QC Pass Rate</div><div class="text-lg font-bold \${m.qc_pass_rate >= 90 ? 'text-emerald-400' : m.qc_pass_rate >= 75 ? 'text-amber-400' : 'text-red-400'}">\${m.qc_pass_rate}%</div></div>
+      </div>
+
+      <div>
+        <div class="text-xs font-semibold text-gray-400 uppercase mb-2">Quality & Returns</div>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Defects</div><div class="font-bold text-red-400">\${m.defect_count}</div></div>
+          <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Returns</div><div class="font-bold text-orange-400">\${m.return_count}</div></div>
+          <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Repairs</div><div class="font-bold text-amber-400">\${m.repair_triggered_count}</div></div>
+          <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Repair Cost</div><div class="font-bold text-amber-400">\${fmt(m.repair_cost_total)}</div></div>
+        </div>
+      </div>
+
+      \${m.units_sold > 0 ? \`
+        <div>
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-2">Margin Performance</div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Units Sold</div><div class="font-bold text-white">\${m.units_sold}</div></div>
+            <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Net Profit</div><div class="font-bold text-emerald-400">\${fmt(m.net_profit)}</div></div>
+            <div class="bg-gray-800 rounded-lg p-2"><div class="text-xs text-gray-400">Avg Margin</div><div class="font-bold \${m.avg_margin_percent >= 20 ? 'text-emerald-400' : 'text-amber-400'}">\${m.avg_margin_percent.toFixed(1)}%</div></div>
+          </div>
+          <div class="mt-2 text-xs text-gray-400">Best: <span class="text-emerald-400">\${m.best_device}</span> · Worst: <span class="text-red-400">\${m.worst_device}</span></div>
+        </div>
+      \` : ''}
+
+      \${m.opr_device_count > 0 ? \`
+        <div class="bg-cyan-900/20 border border-cyan-700/40 rounded-lg p-3">
+          <div class="text-xs font-semibold text-cyan-300 mb-1">OPR Exposure</div>
+          <div class="text-sm text-gray-300">\${m.opr_device_count} device(s) in active OPR · Risk value: <span class="text-amber-400 font-bold">\${fmt(m.opr_risk_value)}</span></div>
+        </div>
+      \` : ''}
+    </div>
+  \`;
+  openModal('Supplier Detail: ' + m.name, body);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: HMRC MTD VAT RETURNS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderMTD() {
+  const returns = await axios.get(API + '/mtd-returns').then(r => r.data);
+  window._mtdReturns = returns;
+
+  const statusColor = { DRAFT: 'text-gray-400', REVIEW_PENDING: 'text-amber-400', MANAGER_APPROVED: 'text-blue-400', SUBMITTED: 'text-cyan-400', ACCEPTED: 'text-emerald-400', REJECTED: 'text-red-400', AMENDED: 'text-purple-400' };
+  const statusBg = { DRAFT: 'bg-gray-500/20 border-gray-500/40', REVIEW_PENDING: 'bg-amber-500/20 border-amber-500/40', MANAGER_APPROVED: 'bg-blue-500/20 border-blue-500/40', SUBMITTED: 'bg-cyan-500/20 border-cyan-500/40', ACCEPTED: 'bg-emerald-500/20 border-emerald-500/40', REJECTED: 'bg-red-500/20 border-red-500/40', AMENDED: 'bg-purple-500/20 border-purple-500/40' };
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Non-Negotiable Controls -->
+      <div class="bg-blue-900/20 border border-blue-700/40 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3"><i class="fas fa-shield-alt text-blue-400"></i><span class="text-sm font-semibold text-blue-300">MTD Non-Negotiable Controls</span></div>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-2 text-xs text-gray-400">
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> VAT period must be locked before submission</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Manager approval required before submission</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Box 3 = Box 1 + Box 2 validation enforced</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> HMRC receipt ID stored on acceptance</div>
+        </div>
+      </div>
+
+      <!-- Submission Workflow -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-stream text-blue-400"></i> MTD Submission Workflow</h3>
+        <div class="flex items-center gap-1 overflow-x-auto pb-2">
+          \${['Lock VAT Period', 'Auto-Calculate 9 Boxes', 'Accountant Review', 'Manager Approval', 'Submit to HMRC API', 'HMRC Acceptance', 'Payment / Refund'].map((step, i) => \`
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <div class="px-3 py-2 rounded-lg text-xs font-medium \${i === 0 ? 'bg-blue-900/50 text-blue-300 border border-blue-700/50' : i === 6 ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50' : 'bg-gray-800 text-gray-300 border border-gray-700'}">\${step}</div>
+              \${i < 6 ? '<i class="fas fa-chevron-right text-gray-600 text-xs"></i>' : ''}
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      <!-- Returns List -->
+      <div class="space-y-5">
+        \${returns.map(r => {
+          const sc = statusColor[r.status] || 'text-gray-400';
+          const sb = statusBg[r.status] || 'bg-gray-500/20 border-gray-500/40';
+          const payable = r.box_5 > 0;
+          return \`
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
+              <!-- Return Header -->
+              <div class="flex items-start justify-between mb-5">
+                <div>
+                  <div class="flex items-center gap-3 mb-1">
+                    <span class="text-xs font-mono text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded">\${r.return_id}</span>
+                    <span class="text-xs px-2.5 py-1 rounded-full border \${sb} \${sc} font-semibold">\${r.status}</span>
+                    \${r.finalised ? '<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30"><i class="fas fa-lock mr-1"></i>Finalised</span>' : '<span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30"><i class="fas fa-lock-open mr-1"></i>Open</span>'}
+                  </div>
+                  <div class="text-white font-bold text-lg">VAT Period: \${r.period_start} – \${r.period_end}</div>
+                  <div class="text-sm text-gray-400 mt-0.5">Period Key: <span class="font-mono text-gray-300">\${r.period_key}</span> · Due: <span class="text-white">\${fmtDate(r.payment_due_date)}</span></div>
+                </div>
+                <div class="text-right">
+                  <div class="text-xs text-gray-400 mb-1">Box 5 — \${payable ? 'Amount Payable' : 'Reclaimable'}</div>
+                  <div class="text-2xl font-bold \${payable ? 'text-red-400' : 'text-emerald-400'}">\${payable ? '+' : ''}\${fmt(r.box_5)}</div>
+                </div>
+              </div>
+
+              <!-- 9 Box Grid -->
+              <div class="mb-5">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">HMRC 9-Box Return</div>
+                <div class="grid grid-cols-3 xl:grid-cols-9 gap-2">
+                  \${[1,2,3,4,5,6,7,8,9].map(box => {
+                    const val = r['box_' + box];
+                    const highlight = box === 5 ? (val > 0 ? 'border-red-500/50 bg-red-900/20' : 'border-emerald-500/50 bg-emerald-900/20') : 'border-gray-700 bg-gray-800/50';
+                    const boxLabels = { 1: 'Output VAT', 2: 'EC VAT', 3: 'Total VAT Due', 4: 'Input VAT', 5: 'Net VAT', 6: 'Net Sales', 7: 'Net Purchases', 8: 'EC Supplies', 9: 'EC Acquisitions' };
+                    return \`<div class="rounded-lg border \${highlight} p-2.5 text-center">
+                      <div class="text-xs text-gray-400 mb-0.5">Box \${box}</div>
+                      <div class="text-xs text-gray-500 mb-1" style="font-size:0.6rem">\${boxLabels[box]}</div>
+                      <div class="font-bold \${box === 5 && val > 0 ? 'text-red-400' : box === 5 ? 'text-emerald-400' : 'text-white'} text-sm">\${fmt(val)}</div>
+                    </div>\`;
+                  }).join('')}
+                </div>
+              </div>
+
+              <!-- Validation Panel -->
+              \${(r.validation_errors.length > 0 || r.validation_warnings.length > 0) ? \`
+                <div class="mb-4 space-y-2">
+                  \${r.validation_errors.map(e => \`
+                    <div class="flex items-start gap-2 bg-red-900/20 border border-red-700/40 rounded-lg p-2.5">
+                      <i class="fas fa-times-circle text-red-400 text-sm mt-0.5"></i>
+                      <span class="text-sm text-red-300">\${e}</span>
+                    </div>
+                  \`).join('')}
+                  \${r.validation_warnings.map(w => \`
+                    <div class="flex items-start gap-2 bg-amber-900/20 border border-amber-700/40 rounded-lg p-2.5">
+                      <i class="fas fa-exclamation-triangle text-amber-400 text-sm mt-0.5"></i>
+                      <span class="text-sm text-amber-300">\${w}</span>
+                    </div>
+                  \`).join('')}
+                </div>
+              \` : r.status !== 'DRAFT' ? \`<div class="mb-4 flex items-center gap-2 bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-2.5"><i class="fas fa-check-circle text-emerald-400"></i><span class="text-sm text-emerald-300">All validation checks passed</span></div>\` : ''}
+
+              <!-- Approval Trail -->
+              <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                \${[
+                  { label: 'Prepared by', who: r.prepared_by, when: r.prepared_at, icon: 'fa-user-edit' },
+                  { label: 'Reviewed by', who: r.reviewed_by, when: r.reviewed_at, icon: 'fa-search' },
+                  { label: 'Approved by', who: r.approved_by, when: r.approved_at, icon: 'fa-user-shield' },
+                  { label: 'Submitted', who: r.submitted_at ? 'HMRC API' : null, when: r.submitted_at, icon: 'fa-paper-plane' },
+                ].map(step => \`
+                  <div class="bg-gray-800/50 rounded-lg p-3">
+                    <div class="flex items-center gap-1.5 text-xs text-gray-400 mb-1"><i class="fas \${step.icon} text-xs"></i>\${step.label}</div>
+                    \${step.who ? \`
+                      <div class="text-sm text-white truncate">\${step.who}</div>
+                      <div class="text-xs text-gray-500">\${step.when ? new Date(step.when).toLocaleDateString('en-GB') : ''}</div>
+                    \` : '<div class="text-sm text-gray-600">Pending</div>'}
+                  </div>
+                \`).join('')}
+              </div>
+
+              <!-- HMRC Details (if submitted) -->
+              \${r.hmrc_receipt_id ? \`
+                <div class="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 mb-4 grid grid-cols-3 gap-3 text-xs">
+                  <div><div class="text-gray-400">HMRC Receipt ID</div><div class="font-mono text-emerald-300">\${r.hmrc_receipt_id}</div></div>
+                  <div><div class="text-gray-400">Correlation ID</div><div class="font-mono text-gray-300">\${r.hmrc_correlation_id}</div></div>
+                  <div><div class="text-gray-400">Processing Date</div><div class="text-white">\${fmtDate(r.hmrc_processing_date)}</div></div>
+                </div>
+              \` : ''}
+
+              <!-- Actions -->
+              <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-800">
+                \${r.status === 'DRAFT' ? \`
+                  <button onclick="alert('📋 Running full 9-box validation...')" class="text-xs bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-check-double mr-1"></i>Validate Return</button>
+                  <button onclick="alert('📤 Sending for accountant review...')" class="text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-search mr-1"></i>Submit for Review</button>
+                \` : ''}
+                \${r.status === 'REVIEW_PENDING' ? \`<button onclick="alert('✅ Manager approval recorded')" class="text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-user-shield mr-1"></i>Approve (Manager)</button>\` : ''}
+                \${r.status === 'MANAGER_APPROVED' ? \`<button onclick="alert('🚀 Submitting to HMRC MTD API...')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-paper-plane mr-1"></i>Submit to HMRC</button>\` : ''}
+                \${r.status === 'ACCEPTED' ? \`
+                  <button onclick="alert('📄 Generating VAT return PDF...')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-file-pdf mr-1"></i>Download PDF</button>
+                  <button onclick="alert('📤 Exported to Xero / QuickBooks')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-sync mr-1"></i>Export to Accounting</button>
+                \` : ''}
+                <button onclick="navigateTo('vat')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-landmark mr-1"></i>View VAT Engine</button>
+                <button onclick="navigateTo('audit')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-history mr-1"></i>View Audit Trail</button>
+              </div>
+            </div>
+          \`;
+        }).join('')}
+      </div>
+    </div>
+  \`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: AUDIT LOG
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderAuditLog() {
+  const [logData, statsData] = await Promise.all([
+    axios.get(API + '/audit-log?limit=50').then(r => r.data),
+    axios.get(API + '/audit-log/stats/summary').then(r => r.data),
+  ]);
+  window._auditEntries = logData.entries;
+
+  const sevColor = { INFO: 'text-blue-400', WARNING: 'text-amber-400', CRITICAL: 'text-red-400', SECURITY: 'text-purple-400' };
+  const sevBg = { INFO: 'bg-blue-500/20 border-blue-500/30', WARNING: 'bg-amber-500/20 border-amber-500/30', CRITICAL: 'bg-red-500/20 border-red-500/30', SECURITY: 'bg-purple-500/20 border-purple-500/30' };
+  const sevIcon = { INFO: 'fa-info-circle', WARNING: 'fa-exclamation-triangle', CRITICAL: 'fa-exclamation-circle', SECURITY: 'fa-shield-alt' };
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Controls Reminder -->
+      <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl px-5 py-3 flex items-center gap-3">
+        <i class="fas fa-lock text-gray-400"></i>
+        <span class="text-sm text-gray-300">Audit log is <strong>immutable</strong> — no entries can be modified or deleted. All write operations across every module are recorded automatically. Retention: <strong>2 years</strong> per HMRC policy.</span>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Total Events</div>
+          <div class="text-2xl font-bold text-white">\${statsData.total}</div>
+          <div class="text-xs text-gray-500">All modules</div>
+        </div>
+        \${['CRITICAL', 'WARNING', 'SECURITY'].map(sev => \`
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="text-xs text-gray-400 mb-1">\${sev}</div>
+            <div class="text-2xl font-bold \${sevColor[sev]}">\${statsData.bySeverity[sev] || 0}</div>
+            <div class="text-xs text-gray-500">Events</div>
+          </div>
+        \`).join('')}
+      </div>
+
+      <!-- Module breakdown -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-400"></i> Events by Module</h3>
+        <div class="flex flex-wrap gap-2">
+          \${Object.entries(statsData.byModule).sort((a,b) => b[1] - a[1]).map(([mod, count]) => \`
+            <div class="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+              <span class="text-xs font-semibold text-gray-300">\${mod}</span>
+              <span class="text-xs font-bold text-blue-400 bg-blue-900/30 rounded-full px-2 py-0.5">\${count}</span>
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <select id="audit-module-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterAuditLog()">
+          <option value="">All Modules</option>
+          \${['INVENTORY','QC','OPR','ORDERS','VAT','FINTECH','SUPPLIERS','SUPPORT','COURIER','RMA','REPAIRS','SYSTEM','AUTH'].map(m => \`<option value="\${m}">\${m}</option>\`).join('')}
+        </select>
+        <select id="audit-severity-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterAuditLog()">
+          <option value="">All Severities</option>
+          <option value="INFO">INFO</option>
+          <option value="WARNING">WARNING</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="SECURITY">SECURITY</option>
+        </select>
+        <div class="text-xs text-gray-400 ml-auto">Showing \${logData.entries.length} of \${logData.total} events</div>
+      </div>
+
+      <!-- Audit Table -->
+      <div id="audit-table">
+        \${renderAuditTable(logData.entries)}
+      </div>
+    </div>
+  \`;
+}
+
+function renderAuditTable(entries) {
+  const sevColor = { INFO: 'text-blue-400', WARNING: 'text-amber-400', CRITICAL: 'text-red-400', SECURITY: 'text-purple-400' };
+  const sevBg = { INFO: 'bg-blue-500/20 border-blue-500/30', WARNING: 'bg-amber-500/20 border-amber-500/30', CRITICAL: 'bg-red-500/20 border-red-500/30', SECURITY: 'bg-purple-500/20 border-purple-500/30' };
+  const sevIcon = { INFO: 'fa-info-circle', WARNING: 'fa-exclamation-triangle', CRITICAL: 'fa-exclamation-circle', SECURITY: 'fa-shield-alt' };
+  return table(
+    ['Timestamp', 'Severity', 'Module', 'Actor', 'Action', 'Entity'],
+    entries.map(e => [
+      \`<div class="text-xs text-gray-400 whitespace-nowrap">\${new Date(e.timestamp).toLocaleString('en-GB')}</div>\`,
+      \`<span class="status-badge inline-flex items-center gap-1 border rounded-full px-2 py-0.5 text-xs \${sevBg[e.severity] || 'bg-gray-500/20'} \${sevColor[e.severity] || 'text-gray-400'}"><i class="fas \${sevIcon[e.severity] || 'fa-info'} text-xs"></i> \${e.severity}</span>\`,
+      \`<span class="text-xs bg-gray-800 px-2 py-0.5 rounded text-gray-300">\${e.module}</span>\`,
+      \`<div class="text-xs"><div class="text-white">\${e.actor === 'system' ? '<i class="fas fa-robot mr-1 text-blue-400"></i>system' : e.actor}</div><div class="text-gray-500">\${e.actor_role}</div></div>\`,
+      \`<div class="text-xs text-gray-300 max-w-xs truncate" title="\${e.action}">\${e.action}</div>\`,
+      \`<div class="text-xs"><div class="text-gray-400">\${e.entity_type}</div><div class="font-mono text-blue-300 text-xs">\${e.entity_id}</div></div>\`,
+    ]),
+    true
+  );
+}
+
+async function filterAuditLog() {
+  const module = document.getElementById('audit-module-filter')?.value || '';
+  const severity = document.getElementById('audit-severity-filter')?.value || '';
+  let params = [];
+  if (module) params.push('module=' + module);
+  if (severity) params.push('severity=' + severity);
+  const url = API + '/audit-log' + (params.length ? '?' + params.join('&') : '');
+  const data = await axios.get(url).then(r => r.data);
+  document.getElementById('audit-table').innerHTML = renderAuditTable(data.entries);
 }
 
 
