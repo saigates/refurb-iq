@@ -6,6 +6,7 @@ import type {
   Device, PurchaseBatch, OPRBatch, Order, VatRecord,
   VatPeriod, FintechAdvance, Supplier, QCRecord, SupportTicket, DashboardStats,
   CourierInvestigation, RMARecord, UnitPnL, ProfitabilitySummary,
+  RepairJob, RepairStats,
 } from '../types/index.js';
 
 const COMPANY_ID = 'REFURBIQ_DEMO';
@@ -442,5 +443,189 @@ export function getProfitabilitySummary(): ProfitabilitySummary {
       profit: Math.round(d.profit * 100) / 100,
       margin_percent: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 10000) / 100 : 0,
     })),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 2+ DATA — Repairs & Refurbishment
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const repairJobs: RepairJob[] = [
+  {
+    repair_id: 'REP-2026-001',
+    company_id: COMPANY_ID,
+    device_id: 'DEV008',
+    imei: '354678901234574',
+    make: 'Apple',
+    model: 'iPhone 13 Pro Max',
+    storage: '256GB',
+    grade_before: 'B',
+    grade_after: undefined,
+    repair_type: 'SCREEN_REPLACEMENT',
+    repair_description: 'Screen cracked bottom-right — full OLED replacement required. iCloud lock also detected at intake QC, awaiting customer unlock before repair can proceed.',
+    trigger: 'INTAKE_QC_FAIL',
+    source_qc_id: 'QC002',
+    vendor_id: 'VND003',
+    vendor_name: 'AppleParts UK Ltd',
+    is_internal: false,
+    quote_amount: 85,
+    actual_cost: undefined,
+    parts_cost: 72,
+    labour_cost: 13,
+    status: 'AWAITING_PARTS',
+    outcome: 'PENDING',
+    created_at: '2026-03-20',
+    started_at: undefined,
+    completed_at: undefined,
+    technician: undefined,
+    notes: 'Device locked — cannot begin repair until iCloud removed. Screen parts ordered from AppleParts UK. Parts ETA: 5 days.',
+    parts_used: [
+      { part_id: 'PT001', part_name: 'iPhone 13 Pro Max OLED Screen Assembly', part_number: 'AAPL-SCR-13PM-256', supplier: 'AppleParts UK Ltd', cost: 72, quantity: 1 },
+    ],
+    timeline: [
+      { event_id: 'RV001', timestamp: '2026-03-19T11:16:00Z', actor: 'system', action: 'Repair job created from QC002 — outcome LOCKED_BLOCKED. Screen crack + iCloud lock detected.', system_generated: true },
+      { event_id: 'RV002', timestamp: '2026-03-20T09:00:00Z', actor: 'ops@refurbiq.co.uk', action: 'Quote of £85 obtained from AppleParts UK. Parts ordered.', system_generated: false },
+      { event_id: 'RV003', timestamp: '2026-03-20T09:05:00Z', actor: 'system', action: 'Status → AWAITING_PARTS. Parts ETA: 2026-03-25.', system_generated: true },
+      { event_id: 'RV004', timestamp: '2026-04-05T10:00:00Z', actor: 'support@refurbiq.co.uk', action: 'Customer contacted re: iCloud lock. Awaiting unlock confirmation.', system_generated: false },
+    ],
+  },
+  {
+    repair_id: 'REP-2026-002',
+    company_id: COMPANY_ID,
+    device_id: 'DEV003',
+    imei: '354678901234569',
+    make: 'Samsung',
+    model: 'Galaxy S24 Ultra',
+    storage: '512GB',
+    grade_before: 'B',
+    grade_after: 'A',
+    repair_type: 'BATTERY_REPLACEMENT',
+    repair_description: 'Battery health 68% at intake QC — below Grade A threshold (80%). Battery replacement required to relist as Grade A and achieve target sale price.',
+    trigger: 'INTAKE_QC_FAIL',
+    source_qc_id: undefined,
+    vendor_id: undefined,
+    vendor_name: 'In-House',
+    is_internal: true,
+    quote_amount: 35,
+    actual_cost: 32,
+    parts_cost: 22,
+    labour_cost: 10,
+    status: 'COMPLETED',
+    outcome: 'UPGRADED_GRADE',
+    created_at: '2026-03-13',
+    started_at: '2026-03-14',
+    completed_at: '2026-03-16',
+    post_repair_qc_id: 'QC004',
+    technician: 'tech01@refurbiq.co.uk',
+    notes: 'Battery replaced successfully. Post-repair QC passed — battery health now 100%. Grade upgraded from B to A. Ready for relisting.',
+    parts_used: [
+      { part_id: 'PT002', part_name: 'Samsung Galaxy S24 Ultra Battery', part_number: 'SAM-BAT-S24U', supplier: 'SamsungParts Direct', cost: 22, quantity: 1 },
+    ],
+    timeline: [
+      { event_id: 'RV005', timestamp: '2026-03-13T10:00:00Z', actor: 'ops@refurbiq.co.uk', action: 'Repair job opened — battery health 68%, below Grade A threshold.', system_generated: false },
+      { event_id: 'RV006', timestamp: '2026-03-14T09:00:00Z', actor: 'tech01@refurbiq.co.uk', action: 'Repair started. Battery removal in progress.', system_generated: false },
+      { event_id: 'RV007', timestamp: '2026-03-16T14:30:00Z', actor: 'tech01@refurbiq.co.uk', action: 'Battery replacement complete. New battery installed — 100% health. Post-repair QC passed.', system_generated: false },
+      { event_id: 'RV008', timestamp: '2026-03-16T14:35:00Z', actor: 'system', action: 'Status → COMPLETED. Outcome: UPGRADED_GRADE (B → A). Device status → AVAILABLE.', system_generated: true },
+    ],
+  },
+  {
+    repair_id: 'REP-2026-003',
+    company_id: COMPANY_ID,
+    device_id: 'DEV006',
+    imei: '354678901234572',
+    make: 'Samsung',
+    model: 'Galaxy A54',
+    storage: '256GB',
+    grade_before: 'C',
+    grade_after: undefined,
+    repair_type: 'SCREEN_REPLACEMENT',
+    repair_description: 'Customer returned device claiming screen cracked on arrival. Return QC pending — cosmetic damage matches "cracked screen" fault. Assessing economic viability of repair vs scrap.',
+    trigger: 'RETURN_QC_FAIL',
+    source_rma_id: 'RMA-2026-009',
+    vendor_id: undefined,
+    vendor_name: 'In-House',
+    is_internal: true,
+    quote_amount: 55,
+    actual_cost: undefined,
+    parts_cost: 40,
+    labour_cost: 15,
+    status: 'QUOTE_PENDING',
+    outcome: 'PENDING',
+    created_at: '2026-04-09',
+    started_at: undefined,
+    completed_at: undefined,
+    technician: undefined,
+    notes: 'Device received from RMA-2026-009. Return QC pending. Screen cracked — need to assess if repair is economically viable given Grade C device value (~£120 resale). Repair cost est. £55.',
+    parts_used: [],
+    timeline: [
+      { event_id: 'RV009', timestamp: '2026-04-09T11:16:00Z', actor: 'system', action: 'Repair job created from RMA-2026-009 — Return QC pending, screen crack reported.', system_generated: true },
+      { event_id: 'RV010', timestamp: '2026-04-09T14:00:00Z', actor: 'ops@refurbiq.co.uk', action: 'Economic viability assessment: Est. repair £55 vs resale value ~£120 (Grade C). Recommendation: PROCEED with repair if QC confirms Grade C-or-above post-repair.', system_generated: false },
+    ],
+  },
+  {
+    repair_id: 'REP-2026-004',
+    company_id: COMPANY_ID,
+    device_id: 'DEV001',
+    imei: '354678901234567',
+    make: 'Apple',
+    model: 'iPhone 14 Pro',
+    storage: '256GB',
+    grade_before: 'A',
+    grade_after: 'B',
+    repair_type: 'BATTERY_REPLACEMENT',
+    repair_description: 'Returned via RMA-2026-005 — battery health at 61%, below Grade A threshold. Battery replaced. Post-repair QC passed but cosmetic inspection revealed additional hairline scratches not present at original intake. Downgraded to Grade B.',
+    trigger: 'RETURN_QC_FAIL',
+    source_rma_id: 'RMA-2026-005',
+    source_qc_id: 'QC003',
+    vendor_id: undefined,
+    vendor_name: 'In-House',
+    is_internal: true,
+    quote_amount: 40,
+    actual_cost: 38,
+    parts_cost: 28,
+    labour_cost: 10,
+    status: 'COMPLETED',
+    outcome: 'DOWNGRADED_GRADE',
+    created_at: '2026-04-08',
+    started_at: '2026-04-08',
+    completed_at: '2026-04-09',
+    post_repair_qc_id: 'QC005',
+    technician: 'tech01@refurbiq.co.uk',
+    notes: 'Battery replaced. Device now functional but cosmetic condition worsened — additional scratches visible on rear glass. Downgraded A → B. Full refund already issued to customer. Device relisted at Grade B.',
+    parts_used: [
+      { part_id: 'PT003', part_name: 'iPhone 14 Pro Battery', part_number: 'AAPL-BAT-14P', supplier: 'AppleParts UK Ltd', cost: 28, quantity: 1 },
+    ],
+    timeline: [
+      { event_id: 'RV011', timestamp: '2026-04-08T09:35:00Z', actor: 'system', action: 'Repair job created from Return QC QC003 — battery 61%, fault confirmed.', system_generated: true },
+      { event_id: 'RV012', timestamp: '2026-04-08T11:00:00Z', actor: 'tech01@refurbiq.co.uk', action: 'Battery replacement started.', system_generated: false },
+      { event_id: 'RV013', timestamp: '2026-04-09T09:00:00Z', actor: 'tech01@refurbiq.co.uk', action: 'Battery replaced. Post-repair QC complete. Battery health 100%. Cosmetic issue noted — hairline scratches on rear.', system_generated: false },
+      { event_id: 'RV014', timestamp: '2026-04-09T09:05:00Z', actor: 'system', action: 'Status → COMPLETED. Outcome: DOWNGRADED_GRADE (A → B). Device → AVAILABLE at Grade B.', system_generated: true },
+    ],
+  },
+];
+
+export function getRepairStats(): RepairStats {
+  const total = repairJobs.length;
+  const inProgress = repairJobs.filter(r => r.status === 'IN_PROGRESS').length;
+  const awaitingParts = repairJobs.filter(r => r.status === 'AWAITING_PARTS').length;
+  const completed = repairJobs.filter(r => r.status === 'COMPLETED').length;
+  const scrapped = repairJobs.filter(r => r.status === 'SCRAPPED').length;
+  const totalCost = repairJobs.reduce((s, r) => s + (r.actual_cost ?? r.quote_amount ?? 0), 0);
+  const avgCost = total > 0 ? Math.round((totalCost / total) * 100) / 100 : 0;
+  const gradeUpgrades = repairJobs.filter(r => r.outcome === 'UPGRADED_GRADE').length;
+  const unviable = repairJobs.filter(r => r.outcome === 'ECONOMICALLY_UNVIABLE').length;
+  // Rough recovery: completed repairs on returned devices saved from write-off
+  const recoveryValue = repairJobs.filter(r => r.status === 'COMPLETED').reduce((s, r) => s + (r.actual_cost ?? 0) * 3, 0);
+  return {
+    total_jobs: total,
+    in_progress: inProgress,
+    awaiting_parts: awaitingParts,
+    completed,
+    scrapped,
+    total_repair_cost: Math.round(totalCost * 100) / 100,
+    avg_repair_cost: avgCost,
+    grade_upgrades: gradeUpgrades,
+    economically_unviable: unviable,
+    recovery_value: Math.round(recoveryValue * 100) / 100,
   };
 }

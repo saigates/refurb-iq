@@ -174,6 +174,12 @@ function getIndexHTML(): string {
       <span>Profitability & P&L</span>
     </button>
 
+    <button onclick="navigateTo('repairs')" id="nav-repairs" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
+      <i class="fas fa-tools w-4 text-gray-400 group-hover:text-blue-400"></i>
+      <span>Repairs & Refurbishment</span>
+      <span class="ml-auto bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">4</span>
+    </button>
+
     <button onclick="navigateTo('admin')" id="nav-admin" class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white group">
       <i class="fas fa-cog w-4 text-gray-400 group-hover:text-blue-400"></i>
       <span>Admin & Settings</span>
@@ -186,7 +192,7 @@ function getIndexHTML(): string {
       <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
       <span>System Operational</span>
     </div>
-    <div class="mt-1">v2.1.0 · Phase 2 Build</div>
+    <div class="mt-1">v2.2.0 · Phase 2 Complete</div>
   </div>
 </aside>
 
@@ -396,6 +402,7 @@ function navigateTo(page) {
     courier: ['Courier & INR', 'Investigations & Loss Recovery'],
     rma: ['Returns & RMA', 'Return QC & Resolution Workflow'],
     profitability: ['Profitability & P&L', 'Unit Economics & Margin Analytics'],
+    repairs: ['Repairs & Refurbishment', 'Job Management & Grade Outcomes'],
     admin: ['Admin & Settings', 'System Configuration'],
   };
   const [title, sub] = pages[page] || ['RefurbIQ', ''];
@@ -416,6 +423,7 @@ function navigateTo(page) {
     courier: renderCourier,
     rma: renderRMA,
     profitability: renderProfitability,
+    repairs: renderRepairs,
     admin: renderAdmin,
   };
   
@@ -440,54 +448,108 @@ function closeModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PAGE: DASHBOARD
+// PAGE: DASHBOARD (Enhanced v2.2)
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function renderDashboard() {
-  const stats = await axios.get(API + '/dashboard').then(r => r.data);
+  const [stats, repairStats, pnlSummary, investigations] = await Promise.all([
+    axios.get(API + '/dashboard').then(r => r.data),
+    axios.get(API + '/repairs/stats/summary').then(r => r.data),
+    axios.get(API + '/pnl/summary').then(r => r.data),
+    axios.get(API + '/investigations/stats/summary').then(r => r.data),
+  ]);
   const vatPositive = stats.vat_liability >= 0;
+  const marginColor = pnlSummary.avg_margin_percent >= 20 ? 'text-emerald-400' : pnlSummary.avg_margin_percent >= 0 ? 'text-amber-400' : 'text-red-400';
   
   document.getElementById('page-content').innerHTML = \`
     <div class="fade-in space-y-6">
-      <!-- Alert Banner -->
-      <div class="bg-red-900/30 border border-red-700/50 rounded-xl px-5 py-3 flex items-center gap-3">
-        <i class="fas fa-exclamation-triangle text-red-400"></i>
-        <span class="text-sm text-red-300"><strong>OPR Alert:</strong> Batch OPR2025-009 expires in <strong>7 days</strong> — reimport or discharge immediately.</span>
-        <button onclick="navigateTo('opr')" class="ml-auto text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg">View OPR →</button>
+      <!-- Alert Banners -->
+      <div class="space-y-2">
+        <div class="bg-red-900/30 border border-red-700/50 rounded-xl px-5 py-3 flex items-center gap-3">
+          <i class="fas fa-exclamation-triangle text-red-400"></i>
+          <span class="text-sm text-red-300"><strong>OPR Alert:</strong> Batch OPR2025-009 expires in <strong>7 days</strong> — reimport or discharge immediately to avoid HMRC liability.</span>
+          <button onclick="navigateTo('opr')" class="ml-auto text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg flex-shrink-0">View OPR →</button>
+        </div>
+        <div class="bg-amber-900/20 border border-amber-700/40 rounded-xl px-5 py-2.5 flex items-center gap-3">
+          <i class="fas fa-shield-alt text-amber-400"></i>
+          <span class="text-sm text-amber-300"><strong>IMEI Mismatch:</strong> RMA-2026-007 (Amazon) — returned device IMEI does not match sold IMEI. All resolution paths frozen pending manager review.</span>
+          <button onclick="navigateTo('rma')" class="ml-auto text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded-lg flex-shrink-0">Review →</button>
+        </div>
       </div>
 
-      <!-- KPI Stats Row 1 -->
-      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        \${statCard('Total Devices', fmtNum(stats.total_devices), 'fa-mobile-alt', 'bg-blue-600', 'In registry')}
-        \${statCard('Available Stock', fmtNum(stats.available_devices), 'fa-check-circle', 'bg-emerald-600', 'Ready to sell')}
-        \${statCard('Pending QC', fmtNum(stats.pending_qc), 'fa-microscope', 'bg-amber-600', 'Awaiting inspection')}
-        \${statCard('Devices in OPR', fmtNum(stats.in_opr), 'fa-globe-europe', 'bg-cyan-600', 'At repair vendor')}
+      <!-- KPI Row 1: Operations -->
+      <div>
+        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Operations Overview</div>
+        <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+          \${statCard('Total Devices', fmtNum(stats.total_devices), 'fa-mobile-alt', 'bg-blue-600', 'In registry')}
+          \${statCard('Available Stock', fmtNum(stats.available_devices), 'fa-check-circle', 'bg-emerald-600', 'Ready to sell')}
+          \${statCard('Pending QC', fmtNum(stats.pending_qc), 'fa-microscope', 'bg-amber-600', 'Awaiting inspection')}
+          \${statCard('In OPR', fmtNum(stats.in_opr), 'fa-globe-europe', 'bg-cyan-600', 'At repair vendor')}
+          \${statCard('Active Repairs', fmtNum(repairStats.in_progress + repairStats.awaiting_parts), 'fa-tools', 'bg-orange-600', \`\${repairStats.awaiting_parts} awaiting parts\`)}
+        </div>
       </div>
 
-      <!-- KPI Stats Row 2 -->
-      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        \${statCard('Open Orders', fmtNum(stats.open_orders), 'fa-shopping-cart', 'bg-indigo-600', 'Active fulfilment')}
-        \${statCard('Open Tickets', fmtNum(stats.open_tickets), 'fa-headset', 'bg-red-600', 'Requires attention')}
-        \${statCard('Revenue MTD', fmt(stats.total_revenue_mtd), 'fa-pound-sign', 'bg-purple-600', 'April 2026')}
-        \${statCard('VAT Liability', (vatPositive ? '' : '') + fmt(Math.abs(stats.vat_liability)), 'fa-landmark', vatPositive ? 'bg-red-600' : 'bg-emerald-600', vatPositive ? 'Payable to HMRC' : 'Reclaimable from HMRC')}
+      <!-- KPI Row 2: Finance -->
+      <div>
+        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Finance & Compliance</div>
+        <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+          \${statCard('Revenue MTD', fmt(stats.total_revenue_mtd), 'fa-pound-sign', 'bg-purple-600', 'April 2026')}
+          \${statCard('Net Profit MTD', fmt(pnlSummary.total_net_profit), 'fa-chart-line', pnlSummary.total_net_profit >= 0 ? 'bg-emerald-700' : 'bg-red-700', \`Avg \${pnlSummary.avg_margin_percent}% margin\`)}
+          \${statCard('VAT Liability', fmt(Math.abs(stats.vat_liability)), 'fa-landmark', vatPositive ? 'bg-red-600' : 'bg-emerald-600', vatPositive ? 'Payable to HMRC' : 'Reclaimable')}
+          \${statCard('Open Orders', fmtNum(stats.open_orders), 'fa-shopping-cart', 'bg-indigo-600', 'Active fulfilment')}
+          \${statCard('Open Tickets', fmtNum(stats.open_tickets), 'fa-headset', 'bg-red-600', 'Requires attention')}
+        </div>
       </div>
 
       <!-- Charts Row -->
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <!-- Device Status Breakdown -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <!-- Device Status Doughnut -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-pie text-blue-400"></i> Device Status Breakdown</h3>
-          <canvas id="deviceChart" height="200"></canvas>
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-pie text-blue-400"></i> Device Status</h3>
+          <canvas id="deviceChart" height="220"></canvas>
         </div>
-        <!-- VAT Position -->
+        <!-- Revenue & Margin Bar -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-purple-400"></i> Current VAT Period (Q2 2026)</h3>
-          <canvas id="vatChart" height="200"></canvas>
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-purple-400"></i> Revenue by Marketplace</h3>
+          <canvas id="mktChart" height="220"></canvas>
+        </div>
+        <!-- Repair Pipeline -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><i class="fas fa-tools text-orange-400"></i> Repair Pipeline</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-400">In Progress</span>
+              <div class="flex items-center gap-2"><span class="text-white font-bold">\${repairStats.in_progress}</span><div class="w-20 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-blue-500" style="width:\${repairStats.total_jobs > 0 ? (repairStats.in_progress/repairStats.total_jobs*100) : 0}%"></div></div></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-400">Awaiting Parts</span>
+              <div class="flex items-center gap-2"><span class="text-white font-bold">\${repairStats.awaiting_parts}</span><div class="w-20 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-amber-500" style="width:\${repairStats.total_jobs > 0 ? (repairStats.awaiting_parts/repairStats.total_jobs*100) : 0}%"></div></div></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-400">Completed</span>
+              <div class="flex items-center gap-2"><span class="text-white font-bold">\${repairStats.completed}</span><div class="w-20 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-emerald-500" style="width:\${repairStats.total_jobs > 0 ? (repairStats.completed/repairStats.total_jobs*100) : 0}%"></div></div></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-400">Quote Pending</span>
+              <div class="flex items-center gap-2"><span class="text-white font-bold">\${repairStats.total_jobs - repairStats.in_progress - repairStats.awaiting_parts - repairStats.completed - repairStats.scrapped}</span><div class="w-20 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-gray-500" style="width:25%"></div></div></div>
+            </div>
+            <div class="border-t border-gray-800 pt-3 mt-3 grid grid-cols-2 gap-2">
+              <div class="bg-gray-800 rounded-lg p-2 text-center">
+                <div class="text-xs text-gray-400">Grade Upgrades</div>
+                <div class="text-lg font-bold text-emerald-400">\${repairStats.grade_upgrades}</div>
+              </div>
+              <div class="bg-gray-800 rounded-lg p-2 text-center">
+                <div class="text-xs text-gray-400">Total Cost</div>
+                <div class="text-lg font-bold text-amber-400">\${fmt(repairStats.total_repair_cost)}</div>
+              </div>
+            </div>
+            <button onclick="navigateTo('repairs')" class="w-full text-xs text-blue-400 hover:text-blue-300 text-center mt-1">View all repair jobs →</button>
+          </div>
         </div>
       </div>
 
-      <!-- Bottom Row -->
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <!-- Bottom Row: 3 panels -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <!-- Recent Orders -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <div class="flex items-center justify-between mb-4">
@@ -496,6 +558,7 @@ async function renderDashboard() {
           </div>
           <div class="space-y-2" id="recent-orders"></div>
         </div>
+
         <!-- OPR Countdown -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <div class="flex items-center justify-between mb-4">
@@ -504,6 +567,86 @@ async function renderDashboard() {
           </div>
           <div class="space-y-3" id="opr-tracker"></div>
         </div>
+
+        <!-- Risk & Compliance Summary -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-shield-alt text-red-400"></i> Risk & Compliance</h3>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-2.5 bg-red-900/20 border border-red-800/40 rounded-lg">
+              <div class="flex items-center gap-2"><i class="fas fa-exclamation-circle text-red-400 text-sm"></i><span class="text-sm text-gray-300">OPR Expiring ≤30d</span></div>
+              <span class="text-red-400 font-bold">\${stats.opr_expiring_soon}</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 bg-amber-900/20 border border-amber-800/40 rounded-lg">
+              <div class="flex items-center gap-2"><i class="fas fa-fingerprint text-amber-400 text-sm"></i><span class="text-sm text-gray-300">IMEI Mismatches</span></div>
+              <span class="text-amber-400 font-bold">1</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 bg-purple-900/20 border border-purple-800/40 rounded-lg">
+              <div class="flex items-center gap-2"><i class="fas fa-truck-fast text-purple-400 text-sm"></i><span class="text-sm text-gray-300">Open Investigations</span></div>
+              <span class="text-purple-400 font-bold">\${investigations.open}</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 bg-blue-900/20 border border-blue-800/40 rounded-lg">
+              <div class="flex items-center gap-2"><i class="fas fa-lock text-blue-400 text-sm"></i><span class="text-sm text-gray-300">Locked Devices</span></div>
+              <span class="text-blue-400 font-bold">1</span>
+            </div>
+            <div class="flex items-center justify-between p-2.5 bg-gray-800/50 border border-gray-700/40 rounded-lg">
+              <div class="flex items-center gap-2"><i class="fas fa-coins text-yellow-400 text-sm"></i><span class="text-sm text-gray-300">Carrier Recovery MTD</span></div>
+              <span class="text-yellow-400 font-bold">\${fmt(investigations.totalRecovered)}</span>
+            </div>
+            <div class="mt-2 p-3 bg-emerald-900/20 border border-emerald-800/40 rounded-lg">
+              <div class="flex items-center gap-2 mb-1"><i class="fas fa-check-circle text-emerald-400 text-xs"></i><span class="text-xs font-semibold text-emerald-300">VAT Period Q1 2026</span></div>
+              <div class="text-xs text-gray-400">Locked & Submitted · Box 5 liability <span class="text-white font-bold">-£626.25</span> (reclaimable)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VAT Chart Row -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-purple-400"></i> VAT Position — Q2 2026 (Open Period)</h3>
+          <canvas id="vatChart" height="180"></canvas>
+        </div>
+        <!-- P&L Waterfall summary -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-funnel-dollar text-emerald-400"></i> P&L Summary — April 2026 MTD</h3>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between py-2 border-b border-gray-800">
+              <span class="text-sm text-gray-400">Gross Revenue</span>
+              <span class="text-white font-bold">\${fmt(pnlSummary.total_gross_revenue)}</span>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-gray-800">
+              <span class="text-sm text-gray-400">Less: VAT Collected</span>
+              <span class="text-red-400">− \${fmt(pnlSummary.total_vat_collected)}</span>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-gray-800">
+              <span class="text-sm text-gray-400">Net Revenue</span>
+              <span class="text-white font-bold">\${fmt(pnlSummary.total_net_revenue)}</span>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-gray-800">
+              <span class="text-sm text-gray-400">Less: Total Costs</span>
+              <span class="text-amber-400">− \${fmt(pnlSummary.total_costs)}</span>
+            </div>
+            <div class="flex items-center justify-between py-2 bg-emerald-900/20 rounded-lg px-3">
+              <span class="text-sm font-bold text-gray-300">Net Profit</span>
+              <span class="text-emerald-400 font-bold text-lg">\${fmt(pnlSummary.total_net_profit)}</span>
+            </div>
+            <div class="flex items-center justify-between py-2">
+              <span class="text-sm text-gray-400">Units Sold</span>
+              <span class="text-white">\${pnlSummary.total_units_sold}</span>
+            </div>
+            <div class="flex items-center justify-between py-2">
+              <span class="text-sm text-gray-400">Avg Margin</span>
+              <span class="font-bold \${marginColor}">\${pnlSummary.avg_margin_percent}%</span>
+            </div>
+            <div class="flex items-center justify-between py-2">
+              <span class="text-sm text-gray-400">Best Margin Device</span>
+              <span class="text-xs text-emerald-400">\${pnlSummary.best_margin_device}</span>
+            </div>
+            <button onclick="navigateTo('profitability')" class="w-full text-xs text-blue-400 hover:text-blue-300 text-center mt-2">Full P&L breakdown →</button>
+          </div>
+        </div>
       </div>
     </div>
   \`;
@@ -511,6 +654,7 @@ async function renderDashboard() {
   // Render charts
   setTimeout(() => {
     renderDeviceChart();
+    renderMktChart(pnlSummary.by_marketplace);
     renderVatChart();
     renderRecentOrders();
     renderOPRTracker();
@@ -531,7 +675,31 @@ function renderDeviceChart() {
       }]
     },
     options: {
-      responsive: true, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 11 } } } }
+      responsive: true,
+      plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 11 } } } }
+    }
+  });
+}
+
+function renderMktChart(byMarketplace) {
+  const ctx = document.getElementById('mktChart');
+  if (!ctx || !byMarketplace) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: byMarketplace.map(m => m.marketplace),
+      datasets: [
+        { label: 'Revenue', data: byMarketplace.map(m => m.revenue), backgroundColor: '#3b82f666', borderColor: '#3b82f6', borderWidth: 1.5 },
+        { label: 'Profit', data: byMarketplace.map(m => m.profit), backgroundColor: '#10b98166', borderColor: '#10b981', borderWidth: 1.5 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9ca3af', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+        y: { ticks: { color: '#6b7280', callback: v => '£' + v }, grid: { color: '#1f2937' } }
+      }
     }
   });
 }
@@ -542,7 +710,7 @@ function renderVatChart() {
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: ['Box 1\\n(Output VAT)', 'Box 4\\n(Input VAT)', 'Box 6\\n(Sales)', 'Box 7\\n(Purchases)'],
+      labels: ['Box 1 (Output VAT)', 'Box 4 (Input VAT)', 'Box 6 (Net Sales)', 'Box 7 (Purchases)'],
       datasets: [{
         label: 'Q2 2026 (Partial)',
         data: [88.75, 0, 6347, 0],
@@ -552,9 +720,10 @@ function renderVatChart() {
       }]
     },
     options: {
-      responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } },
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9ca3af' } } },
       scales: {
-        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+        x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#1f2937' } },
         y: { ticks: { color: '#6b7280', callback: v => '£' + v.toLocaleString() }, grid: { color: '#1f2937' } }
       }
     }
@@ -596,7 +765,7 @@ async function renderOPRTracker() {
         <div class="flex items-center justify-between mb-2">
           <div>
             <div class="text-sm font-medium text-white">\${b.batch_reference}</div>
-            <div class="text-xs text-gray-400">\${b.unit_count} units · \${b.vendor_name?.substring(0,25)}...</div>
+            <div class="text-xs text-gray-400">\${b.unit_count} units · \${b.vendor_name?.substring(0,22)}...</div>
           </div>
           <div class="text-right">
             <div class="text-sm font-bold \${urgent ? 'text-red-400' : warning ? 'text-amber-400' : 'text-emerald-400'}">\${b.days_remaining}d left</div>
@@ -2583,7 +2752,281 @@ function filterPnL() {
   document.getElementById('pnl-table').innerHTML = renderPnLTable(filtered);
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// PAGE: REPAIRS & REFURBISHMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function renderRepairs() {
+  const [repairs, stats] = await Promise.all([
+    axios.get(API + '/repairs').then(r => r.data),
+    axios.get(API + '/repairs/stats/summary').then(r => r.data),
+  ]);
+  window._allRepairs = repairs;
+
+  document.getElementById('page-content').innerHTML = \`
+    <div class="fade-in space-y-6">
+
+      <!-- Non-Negotiable Controls -->
+      <div class="bg-blue-900/20 border border-blue-700/40 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fas fa-shield-alt text-blue-400"></i>
+          <span class="text-sm font-semibold text-blue-300">Repair Module — Non-Negotiable Controls</span>
+        </div>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-2 text-xs text-gray-400">
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Post-repair QC mandatory before device re-enters Available</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Economic viability check required before approval</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Grade outcomes written to device record and audit log</div>
+          <div class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-400"></i> Repair cost posted to unit P&L automatically</div>
+        </div>
+      </div>
+
+      <!-- KPI Row -->
+      <div class="grid grid-cols-2 xl:grid-cols-5 gap-4">
+        \${statCard('Total Jobs', stats.total_jobs, 'fa-tools', 'bg-orange-600', 'All time')}
+        \${statCard('In Progress', stats.in_progress, 'fa-cog', 'bg-blue-600', 'Active repairs')}
+        \${statCard('Awaiting Parts', stats.awaiting_parts, 'fa-clock', 'bg-amber-600', 'Parts on order')}
+        \${statCard('Completed', stats.completed, 'fa-check-circle', 'bg-emerald-600', 'Successfully repaired')}
+        \${statCard('Grade Upgrades', stats.grade_upgrades, 'fa-arrow-up', 'bg-purple-600', 'Grade improved')}
+      </div>
+
+      <!-- Financial summary -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Total Repair Cost</div>
+          <div class="text-2xl font-bold text-amber-400">\${fmt(stats.total_repair_cost)}</div>
+          <div class="text-xs text-gray-500 mt-1">Avg \${fmt(stats.avg_repair_cost)} per job</div>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Grade Upgrade Value</div>
+          <div class="text-2xl font-bold text-emerald-400">\${fmt(stats.recovery_value)}</div>
+          <div class="text-xs text-gray-500 mt-1">Estimated uplift from grade upgrades</div>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div class="text-xs text-gray-400 mb-1">Economically Unviable</div>
+          <div class="text-2xl font-bold text-red-400">\${stats.economically_unviable}</div>
+          <div class="text-xs text-gray-500 mt-1">Repairs declined on cost grounds</div>
+        </div>
+      </div>
+
+      <!-- Repair Pipeline Diagram -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-stream text-orange-400"></i> Repair Workflow</h3>
+        <div class="flex items-center gap-1 overflow-x-auto pb-2">
+          \${['QC Fail / Trigger', 'Create Job', 'Quote & Approval', 'Parts Ordered', 'In Progress', 'Completed', 'Post-Repair QC', 'Back to Available'].map((step, i) => \`
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <div class="px-3 py-2 rounded-lg text-xs font-medium \${i === 0 ? 'bg-red-900/50 text-red-300 border border-red-700/50' : i === 7 ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50' : 'bg-gray-800 text-gray-300 border border-gray-700'}">\${step}</div>
+              \${i < 7 ? '<i class="fas fa-chevron-right text-gray-600 text-xs"></i>' : ''}
+            </div>
+          \`).join('')}
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-400">
+          <span class="bg-gray-800 px-2 py-1 rounded">⚠ Quote Rejected → Scrap or Return Unrepaired</span>
+          <span class="bg-gray-800 px-2 py-1 rounded">⚠ Economically Unviable → Write-off to P&L</span>
+          <span class="bg-gray-800 px-2 py-1 rounded">✓ Post-repair QC mandatory before re-listing</span>
+          <span class="bg-gray-800 px-2 py-1 rounded">✓ Grade outcome locked to audit log</span>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <select id="repair-status-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterRepairs()">
+          <option value="">All Statuses</option>
+          <option value="QUOTE_PENDING">Quote Pending</option>
+          <option value="QUOTE_APPROVED">Quote Approved</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="AWAITING_PARTS">Awaiting Parts</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="SCRAPPED">Scrapped</option>
+        </select>
+        <select id="repair-outcome-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300" onchange="filterRepairs()">
+          <option value="">All Outcomes</option>
+          <option value="PENDING">Pending</option>
+          <option value="UPGRADED_GRADE">Grade Upgraded</option>
+          <option value="DOWNGRADED_GRADE">Grade Downgraded</option>
+          <option value="RESTORED_SAME_GRADE">Same Grade Restored</option>
+          <option value="ECONOMICALLY_UNVIABLE">Unviable</option>
+        </select>
+        <div class="text-xs text-gray-400 ml-auto">\${repairs.length} job(s)</div>
+      </div>
+
+      <!-- Jobs Table / Cards -->
+      <div id="repairs-list">
+        \${renderRepairCards(repairs)}
+      </div>
+    </div>
+  \`;
+}
+
+function repairStatusBadge(status) {
+  const map = {
+    QUOTE_PENDING: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    QUOTE_APPROVED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    QUOTE_REJECTED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    IN_PROGRESS: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    AWAITING_PARTS: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    COMPLETED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    FAILED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    SCRAPPED: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    RETURNED_UNREPAIRED: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  };
+  return \`<span class="status-badge inline-flex items-center gap-1 border rounded-full px-2.5 py-0.5 \${map[status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}">\${status.replace(/_/g, ' ')}</span>\`;
+}
+
+function repairOutcomeBadge(outcome) {
+  const map = {
+    PENDING: 'bg-gray-500/20 text-gray-400',
+    RESTORED_SAME_GRADE: 'bg-blue-500/20 text-blue-400',
+    UPGRADED_GRADE: 'bg-emerald-500/20 text-emerald-400',
+    DOWNGRADED_GRADE: 'bg-amber-500/20 text-amber-400',
+    ECONOMICALLY_UNVIABLE: 'bg-red-500/20 text-red-400',
+    SCRAPPED: 'bg-gray-600/20 text-gray-500',
+  };
+  const icons = {
+    PENDING: 'fa-clock',
+    RESTORED_SAME_GRADE: 'fa-check',
+    UPGRADED_GRADE: 'fa-arrow-up',
+    DOWNGRADED_GRADE: 'fa-arrow-down',
+    ECONOMICALLY_UNVIABLE: 'fa-ban',
+    SCRAPPED: 'fa-trash',
+  };
+  return \`<span class="text-xs px-2 py-0.5 rounded-full flex items-center gap-1 \${map[outcome] || 'bg-gray-500/20 text-gray-400'}"><i class="fas \${icons[outcome] || 'fa-question'} text-xs"></i> \${outcome.replace(/_/g, ' ')}</span>\`;
+}
+
+function renderRepairCards(repairs) {
+  if (!repairs.length) return \`<div class="text-center py-12 text-gray-500"><i class="fas fa-tools text-4xl mb-3"></i><p>No repair jobs found</p></div>\`;
+  return repairs.map(r => \`
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4 card-hover cursor-pointer" onclick="showRepairDetail('\${r.repair_id}')">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-xs font-mono text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded">\${r.repair_id}</span>
+            \${repairStatusBadge(r.status)}
+            \${repairOutcomeBadge(r.outcome)}
+            \${r.is_internal ? '<span class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">In-House</span>' : '<span class="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded">External Vendor</span>'}
+          </div>
+          <div class="text-white font-semibold">\${r.make} \${r.model} <span class="text-gray-400 font-normal text-sm">(\${r.storage})</span></div>
+          <div class="text-xs text-gray-400 mt-0.5 font-mono">\${r.imei}</div>
+          <div class="mt-2 text-sm text-gray-300">\${r.repair_description.substring(0, 120)}\${r.repair_description.length > 120 ? '...' : ''}</div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="text-lg font-bold text-amber-400">\${fmt(r.actual_cost ?? r.quote_amount ?? 0)}</div>
+          <div class="text-xs text-gray-400">\${r.actual_cost ? 'Actual cost' : r.quote_amount ? 'Quote' : 'TBD'}</div>
+          <div class="mt-2 text-xs text-gray-400">
+            Grade: <span class="text-white font-bold">\${r.grade_before}</span>
+            \${r.grade_after ? \` → <span class="font-bold \${r.grade_after > r.grade_before ? 'text-emerald-400' : r.grade_after < r.grade_before ? 'text-amber-400' : 'text-white'}">\${r.grade_after}</span>\` : ' → <span class="text-gray-500">TBD</span>'}
+          </div>
+          <div class="text-xs text-gray-500 mt-1">\${fmtDate(r.created_at)}</div>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center gap-4 text-xs text-gray-400 border-t border-gray-800 pt-3">
+        <span><i class="fas fa-mobile-alt text-gray-500 mr-1"></i>\${r.device_id}</span>
+        <span><i class="fas fa-tag text-gray-500 mr-1"></i>\${r.repair_type.replace(/_/g,' ')}</span>
+        <span><i class="fas fa-bolt text-gray-500 mr-1"></i>\${r.trigger.replace(/_/g,' ')}</span>
+        \${r.vendor_name ? \`<span><i class="fas fa-building text-gray-500 mr-1"></i>\${r.vendor_name}</span>\` : ''}
+        \${r.source_rma_id ? \`<span class="text-orange-400"><i class="fas fa-undo mr-1"></i>\${r.source_rma_id}</span>\` : ''}
+        \${r.parts_used?.length ? \`<span><i class="fas fa-box text-gray-500 mr-1"></i>\${r.parts_used.length} part(s)</span>\` : ''}
+        <span class="ml-auto"><i class="fas fa-clock text-gray-500 mr-1"></i>\${r.timeline.length} events</span>
+      </div>
+    </div>
+  \`).join('');
+}
+
+function filterRepairs() {
+  const status = document.getElementById('repair-status-filter')?.value || '';
+  const outcome = document.getElementById('repair-outcome-filter')?.value || '';
+  let filtered = window._allRepairs || [];
+  if (status) filtered = filtered.filter(r => r.status === status);
+  if (outcome) filtered = filtered.filter(r => r.outcome === outcome);
+  document.getElementById('repairs-list').innerHTML = renderRepairCards(filtered);
+}
+
+async function showRepairDetail(repairId) {
+  const r = await axios.get(API + '/repairs/' + repairId).then(x => x.data);
+  const gradeDiff = r.grade_after ? (r.grade_after < r.grade_before ? '↑ Upgraded' : r.grade_after > r.grade_before ? '↓ Downgraded' : '= Unchanged') : 'TBD';
+  const gradeColor = r.grade_after ? (r.grade_after < r.grade_before ? 'text-emerald-400' : r.grade_after > r.grade_before ? 'text-amber-400' : 'text-gray-400') : 'text-gray-500';
+  const body = \`
+    <div class="space-y-4">
+      <!-- Header -->
+      <div class="grid grid-cols-2 gap-3">
+        <div><div class="text-xs text-gray-400">Device</div><div class="text-white font-bold">\${r.make} \${r.model} \${r.storage}</div><div class="text-xs text-blue-300 font-mono">\${r.imei}</div></div>
+        <div><div class="text-xs text-gray-400">Status</div><div class="mt-1">\${repairStatusBadge(r.status)}</div></div>
+        <div><div class="text-xs text-gray-400">Repair Type</div><div class="text-white">\${r.repair_type.replace(/_/g,' ')}</div></div>
+        <div><div class="text-xs text-gray-400">Trigger</div><div class="text-amber-300 text-sm">\${r.trigger.replace(/_/g,' ')}</div></div>
+        <div><div class="text-xs text-gray-400">Vendor</div><div class="text-white">\${r.vendor_name || '—'} \${r.is_internal ? '<span class="text-xs text-gray-400">(In-House)</span>' : ''}</div></div>
+        <div><div class="text-xs text-gray-400">Grade</div><div class="text-sm"><span class="text-gray-300">\${r.grade_before}</span> → <span class="\${gradeColor} font-bold">\${r.grade_after || 'TBD'}</span> <span class="\${gradeColor} text-xs">\${gradeDiff}</span></div></div>
+      </div>
+
+      <!-- Description -->
+      <div class="bg-gray-800 rounded-lg p-3">
+        <div class="text-xs text-gray-400 mb-1">Description</div>
+        <div class="text-sm text-gray-300">\${r.repair_description}</div>
+      </div>
+
+      <!-- Financials -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-gray-800 rounded-lg p-3 text-center">
+          <div class="text-xs text-gray-400">Quote</div>
+          <div class="text-lg font-bold text-blue-400">\${fmt(r.quote_amount ?? 0)}</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center">
+          <div class="text-xs text-gray-400">Actual Cost</div>
+          <div class="text-lg font-bold text-amber-400">\${r.actual_cost ? fmt(r.actual_cost) : '—'}</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-3 text-center">
+          <div class="text-xs text-gray-400">Parts / Labour</div>
+          <div class="text-sm font-bold text-gray-300">\${fmt(r.parts_cost ?? 0)} / \${fmt(r.labour_cost ?? 0)}</div>
+        </div>
+      </div>
+
+      <!-- Parts Used -->
+      \${r.parts_used?.length ? \`
+        <div>
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-2">Parts Used</div>
+          <div class="space-y-1">
+            \${r.parts_used.map(p => \`
+              <div class="flex items-center justify-between py-1.5 px-3 bg-gray-800 rounded-lg text-sm">
+                <div><span class="text-white">\${p.part_name}</span> \${p.part_number ? \`<span class="text-xs text-gray-500">(\${p.part_number})</span>\` : ''}</div>
+                <div class="text-right text-xs text-gray-400">\${p.supplier || ''} · Qty \${p.quantity} · <span class="text-amber-400 font-bold">\${fmt(p.cost)}</span></div>
+              </div>
+            \`).join('')}
+          </div>
+        </div>
+      \` : ''}
+
+      <!-- Timeline -->
+      <div>
+        <div class="text-xs font-semibold text-gray-400 uppercase mb-2">Timeline</div>
+        <div class="space-y-2">
+          \${r.timeline.map(e => \`
+            <div class="flex gap-3 py-2 border-l-2 \${e.system_generated ? 'border-blue-600/50' : 'border-gray-600'} pl-3">
+              <div class="flex-1">
+                <div class="text-xs text-gray-500">\${new Date(e.timestamp).toLocaleString('en-GB')} · \${e.system_generated ? '<span class="text-blue-400">system</span>' : \`<span class="text-gray-300">\${e.actor}</span>\`}</div>
+                <div class="text-sm text-gray-300 mt-0.5">\${e.action}</div>
+              </div>
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+
+      \${r.notes ? \`<div class="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3"><div class="text-xs text-amber-400 mb-1">Notes</div><div class="text-sm text-gray-300">\${r.notes}</div></div>\` : ''}
+
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-2 pt-2 border-t border-gray-700">
+        \${r.status === 'QUOTE_PENDING' ? \`
+          <button onclick="alert('✅ Quote approved — job moves to IN_PROGRESS')" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-check mr-1"></i>Approve Quote</button>
+          <button onclick="alert('❌ Quote rejected — device to be scrapped or returned unrepaired')" class="text-xs bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-times mr-1"></i>Reject / Scrap</button>
+        \` : ''}
+        \${r.status === 'AWAITING_PARTS' ? \`<button onclick="alert('📦 Parts received — job progressing to IN_PROGRESS')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-box-open mr-1"></i>Mark Parts Received</button>\` : ''}
+        \${r.status === 'IN_PROGRESS' ? \`<button onclick="alert('✅ Repair completed — queuing for Post-Repair QC')" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-tools mr-1"></i>Mark Complete — Queue Post-Repair QC</button>\` : ''}
+        \${r.status === 'COMPLETED' && !r.post_repair_qc_id ? \`<button onclick="alert('🔍 Launching Post-Repair QC form...')" class="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-microscope mr-1"></i>Run Post-Repair QC</button>\` : ''}
+        <button onclick="alert('📋 Audit log entry created')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"><i class="fas fa-history mr-1"></i>Add Note</button>
+      </div>
+    </div>
+  \`;
+  openModal(\`Repair Job: \${repairId} — \${r.make} \${r.model}\`, body);
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
 });
 

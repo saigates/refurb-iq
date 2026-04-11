@@ -453,3 +453,102 @@ export interface MakePnL {
   profit: number;
   margin_percent: number;
 }
+
+// ── Repairs & Refurbishment ───────────────────────────────────────────────────
+
+export type RepairStatus =
+  | 'QUOTE_PENDING'
+  | 'QUOTE_APPROVED'
+  | 'QUOTE_REJECTED'
+  | 'IN_PROGRESS'
+  | 'AWAITING_PARTS'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SCRAPPED'
+  | 'RETURNED_UNREPAIRED';
+
+export type RepairType =
+  | 'SCREEN_REPLACEMENT'
+  | 'BATTERY_REPLACEMENT'
+  | 'CHARGING_PORT'
+  | 'CAMERA_REPAIR'
+  | 'BOARD_LEVEL'
+  | 'HOUSING_REPLACEMENT'
+  | 'WATER_DAMAGE'
+  | 'SOFTWARE_UNLOCK'
+  | 'DATA_WIPE'
+  | 'FULL_REFURBISHMENT'
+  | 'OTHER';
+
+export type RepairOutcome =
+  | 'PENDING'
+  | 'RESTORED_SAME_GRADE'
+  | 'UPGRADED_GRADE'
+  | 'DOWNGRADED_GRADE'
+  | 'ECONOMICALLY_UNVIABLE'
+  | 'SCRAPPED';
+
+export interface RepairJob {
+  repair_id: string;
+  company_id: string;
+  device_id: string;
+  imei: string;
+  make: string;
+  model: string;
+  storage: string;
+  grade_before: string;
+  grade_after?: string;
+  repair_type: RepairType;
+  repair_description: string;
+  trigger: 'INTAKE_QC_FAIL' | 'RETURN_QC_FAIL' | 'CUSTOMER_COMPLAINT' | 'COSMETIC_UPGRADE' | 'MANUAL';
+  source_rma_id?: string;
+  source_qc_id?: string;
+  vendor_id?: string;
+  vendor_name?: string;
+  is_internal: boolean;
+  quote_amount?: number;
+  actual_cost?: number;
+  parts_cost?: number;
+  labour_cost?: number;
+  status: RepairStatus;
+  outcome: RepairOutcome;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  post_repair_qc_id?: string;
+  notes?: string;
+  technician?: string;
+  parts_used?: RepairPart[];
+  timeline: RepairEvent[];
+}
+
+export interface RepairPart {
+  part_id: string;
+  part_name: string;
+  part_number?: string;
+  supplier?: string;
+  cost: number;
+  quantity: number;
+}
+
+export interface RepairEvent {
+  event_id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  system_generated: boolean;
+  notes?: string;
+}
+
+export interface RepairStats {
+  total_jobs: number;
+  in_progress: number;
+  awaiting_parts: number;
+  completed: number;
+  scrapped: number;
+  total_repair_cost: number;
+  avg_repair_cost: number;
+  grade_upgrades: number;
+  economically_unviable: number;
+  recovery_value: number;
+}

@@ -9,6 +9,7 @@ import {
   orders, vatRecords, vatPeriods, fintechAdvances,
   qcRecords, supportTickets, getDashboardStats,
   courierInvestigations, rmaRecords, unitPnLRecords, getProfitabilitySummary,
+  repairJobs, getRepairStats,
 } from '../lib/data-store.js';
 import {
   VAT_CODE_DEFINITIONS, evaluateDRCThreshold, calculateVat,
@@ -197,4 +198,19 @@ api.get('/pnl/summary', (c) => c.json(getProfitabilitySummary()));
 api.get('/pnl/units/:device_id', (c) => {
   const u = unitPnLRecords.find(x => x.device_id === c.req.param('device_id'));
   return u ? c.json(u) : c.notFound();
+});
+
+// ── Repairs & Refurbishment ────────────────────────────────────────────────────
+api.get('/repairs', (c) => {
+  const { status, outcome, device_id } = c.req.query();
+  let result = [...repairJobs];
+  if (status) result = result.filter(r => r.status === status);
+  if (outcome) result = result.filter(r => r.outcome === outcome);
+  if (device_id) result = result.filter(r => r.device_id === device_id);
+  return c.json(result);
+});
+api.get('/repairs/stats/summary', (c) => c.json(getRepairStats()));
+api.get('/repairs/:id', (c) => {
+  const r = repairJobs.find(x => x.repair_id === c.req.param('id'));
+  return r ? c.json(r) : c.notFound();
 });
