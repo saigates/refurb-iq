@@ -312,10 +312,7 @@ api.get('/tenants/:id/usage', (c) => {
 
 // ── Marketplace Integrations ──────────────────────────────────────────────────
 api.get('/marketplace', (c) => c.json(marketplaceIntegrations));
-api.get('/marketplace/:id', (c) => {
-  const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));
-  return m ? c.json(m) : c.notFound();
-});
+api.get('/marketplace/integrations', (c) => c.json(marketplaceIntegrations));
 api.get('/marketplace/stats/summary', (c) => {
   const total = marketplaceIntegrations.length;
   const connected = marketplaceIntegrations.filter(m => m.status === 'CONNECTED').length;
@@ -324,6 +321,10 @@ api.get('/marketplace/stats/summary', (c) => {
   const pendingOrders = marketplaceIntegrations.reduce((s, m) => s + m.pending_orders, 0);
   const totalErrors = marketplaceIntegrations.reduce((s, m) => s + m.recent_errors.filter(e => !e.resolved).length, 0);
   return c.json({ total, connected, errors, disconnected: total - connected - errors, total_orders_synced: totalOrders, pending_orders: pendingOrders, unresolved_errors: totalErrors });
+});
+api.get('/marketplace/:id', (c) => {
+  const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));
+  return m ? c.json(m) : c.notFound();
 });
 api.post('/marketplace/:id/reconnect', async (c) => {
   const m = marketplaceIntegrations.find(x => x.integration_id === c.req.param('id'));

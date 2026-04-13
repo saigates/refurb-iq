@@ -351,7 +351,7 @@ function getIndexHTML(): string {
       <!-- Search -->
       <div class="relative">
         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-        <input type="text" placeholder="Search IMEI, order, ticket..." class="bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-72" />
+        <input type="text" placeholder="Search IMEI, order, ticket..." class="rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-72" style="background:var(--bg-input); border:1px solid var(--border-light); color:var(--text-primary)" />
       </div>
       <!-- Notifications -->
       <button class="relative" style="color:var(--text-secondary)">
@@ -524,13 +524,15 @@ function statCard(title, value, icon, color, subtitle = '') {
 function navigateTo(page) {
   currentPage = page;
   document.querySelectorAll('[id^="nav-"]').forEach(el => {
-    el.classList.remove('bg-blue-600/20', 'text-white', 'border-l-2', 'border-blue-500');
-    el.classList.add('text-gray-300');
+    el.classList.remove('nav-active');
+    el.style.background = '';
+    el.style.color = 'var(--text-nav)';
   });
   const navEl = document.getElementById('nav-' + page);
   if (navEl) {
-    navEl.classList.add('bg-blue-600/20', 'text-white');
-    navEl.classList.remove('text-gray-300');
+    navEl.classList.add('nav-active');
+    navEl.style.background = 'var(--nav-active-bg)';
+    navEl.style.color = 'var(--nav-active-text)';
   }
   
   const pages = {
@@ -4430,17 +4432,20 @@ function applyTheme(light) {
   const body      = document.getElementById('app-body');
   const icon      = document.getElementById('theme-icon');
   const label     = document.getElementById('theme-label');
-  const searchInput = document.querySelector('input[type="text"]');
   if (light) {
     body.classList.add('light-mode');
     if (icon)  { icon.className  = 'fas fa-sun text-xs'; }
     if (label) { label.textContent = 'Light'; }
-    if (searchInput) searchInput.style.colorScheme = 'light';
   } else {
     body.classList.remove('light-mode');
     if (icon)  { icon.className  = 'fas fa-moon text-xs'; }
     if (label) { label.textContent = 'Dark'; }
-    if (searchInput) searchInput.style.colorScheme = 'dark';
+  }
+  // Re-apply active nav highlight so it picks up the new CSS variable values
+  const activeNav = document.querySelector('.nav-active');
+  if (activeNav) {
+    activeNav.style.background = 'var(--nav-active-bg)';
+    activeNav.style.color = 'var(--nav-active-text)';
   }
 }
 
