@@ -1136,57 +1136,355 @@ async function showImportModal() {
     return '<option value="' + s.supplier_id + '" data-vatcode="' + (s.default_vat_code || '') + '">' + s.supplier_code + ' \u2014 ' + s.name + '</option>';
   }).join('');
 
+  // CSV template download blob
+  const CSV_TEMPLATE_IMEI = 'IMEI,Make,Model,Storage,Colour,Network,Grade\\n353012340000001,Apple,iPhone 14,128GB,Midnight,UNLOCKED,A\\n353012340000002,Samsung,Galaxy S23,256GB,Phantom Black,UNLOCKED,B\\n';
+  const csvBlob = new Blob([CSV_TEMPLATE_IMEI], {type:'text/csv'});
+  const csvUrl = URL.createObjectURL(csvBlob);
+
   openModal('Import Purchase Batch / IMEI CSV', \`
-    <div class="space-y-4 text-sm">
-      <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
-        <p class="text-blue-300 font-medium">Goods-In Workflow</p>
-        <ol class="text-blue-200/70 mt-2 space-y-1 list-decimal list-inside text-xs">
-          <li>Create purchase batch with supplier invoice reference</li>
-          <li>Import expected IMEI list from supplier CSV</li>
-          <li>Scan physical devices against expected list</li>
-          <li>Flag discrepancies as Device Identity Events</li>
+    <div class="space-y-4 text-sm" id="import-modal-wrap">
+
+      <!-- Goods-In info banner -->
+      <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3">
+        <p class="text-blue-300 font-medium text-xs mb-1"><i class="fas fa-info-circle mr-1"></i>Goods-In Workflow</p>
+        <ol class="text-blue-200/70 space-y-0.5 list-decimal list-inside text-xs">
+          <li>Fill supplier, invoice ref and VAT code below</li>
+          <li>Upload IMEI CSV (columns: IMEI, Make, Model, Storage, Colour, Network, Grade)</li>
+          <li>Review the preview table, then click Create Batch &amp; Import</li>
           <li>Devices enter Intake QC queue automatically</li>
         </ol>
       </div>
+
+      <!-- Form fields row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-gray-400 text-xs mb-1">Supplier <span class="text-red-400">*</span></label>
+          <select id="import-supplier-sel" onchange="onImportSupplierChange()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm">
+            <option value="">Select supplier...</option>
+            \${supplierOpts}
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-400 text-xs mb-1">Invoice Reference <span class="text-red-400">*</span></label>
+          <input type="text" id="import-inv-ref" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm" placeholder="e.g. TS-INV-5500" />
+        </div>
+        <div>
+          <label class="block text-gray-400 text-xs mb-1">Batch Date</label>
+          <input type="date" id="import-batch-date" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm" />
+        </div>
+        <div>
+          <label class="block text-gray-400 text-xs mb-1">VAT Code</label>
+          <select id="import-vat-code" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm">
+            <option value="20RC_PURCHASES">20RC_PURCHASES — Reverse Charge</option>
+            <option value="20S_PURCHASES">20S_PURCHASES — Standard 20%</option>
+            <option value="0MARGIN_PURCHASES">0MARGIN_PURCHASES — Margin Scheme</option>
+            <option value="NOVAT_PURCHASES">NOVAT_PURCHASES — No VAT</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- File upload zone -->
       <div>
-        <label class="block text-gray-400 text-xs mb-1">Supplier</label>
-        <select id="import-supplier-sel" onchange="onImportSupplierChange()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
-          <option value="">Select supplier...</option>
-          \${supplierOpts}
-        </select>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-gray-400 text-xs">IMEI CSV File <span class="text-red-400">*</span></label>
+          <a href="\${csvUrl}" download="imei_import_template.csv" class="text-blue-400 text-xs hover:text-blue-300"><i class="fas fa-download mr-1"></i>Download Template</a>
+        </div>
+
+        <!-- Hidden real file input -->
+        <input type="file" id="import-file-input" accept=".csv,text/csv,text/plain" class="hidden" onchange="onImportFileSelected(event)" />
+
+        <!-- Drop zone — clicking anywhere triggers file picker -->
+        <div id="import-drop-zone"
+          class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-blue-500 hover:bg-blue-900/10"
+          onclick="document.getElementById('import-file-input').click()"
+          ondragover="onImportDragOver(event)"
+          ondragleave="onImportDragLeave(event)"
+          ondrop="onImportDrop(event)">
+          <i class="fas fa-file-csv text-3xl text-gray-500 mb-2 pointer-events-none"></i>
+          <p class="text-gray-400 text-xs pointer-events-none">
+            Drop IMEI CSV here or <span class="text-blue-400 font-medium">browse files</span>
+          </p>
+          <p class="text-gray-600 text-xs mt-1 pointer-events-none">Columns: IMEI, Make, Model, Storage, Colour, Network, Grade</p>
+        </div>
+
+        <!-- Selected file name badge -->
+        <div id="import-file-badge" class="hidden mt-2 flex items-center gap-2 text-xs text-emerald-400">
+          <i class="fas fa-check-circle"></i>
+          <span id="import-file-name"></span>
+          <button onclick="clearImportFile()" class="ml-auto text-gray-500 hover:text-red-400"><i class="fas fa-times"></i></button>
+        </div>
       </div>
-      <div>
-        <label class="block text-gray-400 text-xs mb-1">Invoice Reference</label>
-        <input type="text" id="import-inv-ref" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="e.g. TS-INV-5500" />
+
+      <!-- CSV preview table (hidden until file parsed) -->
+      <div id="import-csv-preview" class="hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-medium text-gray-300"><i class="fas fa-table mr-1 text-blue-400"></i>CSV Preview</span>
+          <div id="import-csv-stats" class="flex gap-2 text-xs"></div>
+        </div>
+        <div id="import-csv-table" class="overflow-x-auto max-h-48 overflow-y-auto rounded-lg border border-gray-700 text-xs"></div>
       </div>
-      <div>
-        <label class="block text-gray-400 text-xs mb-1">VAT Code</label>
-        <select id="import-vat-code" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
-          <option value="20RC_PURCHASES">20RC_PURCHASES — Reverse Charge</option>
-          <option value="20S_PURCHASES">20S_PURCHASES — Standard 20%</option>
-          <option value="0MARGIN_PURCHASES">0MARGIN_PURCHASES — Margin Scheme</option>
-          <option value="NOVAT_PURCHASES">NOVAT_PURCHASES — No VAT</option>
-        </select>
-      </div>
-      <div class="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
-        <i class="fas fa-file-csv text-3xl text-gray-500 mb-2"></i>
-        <p class="text-gray-400 text-xs">Drop IMEI CSV here or <span class="text-blue-400 cursor-pointer">browse</span></p>
-        <p class="text-gray-600 text-xs mt-1">Expected: IMEI, Make, Model, Storage, Colour, Network</p>
-      </div>
-      <div class="flex gap-3 pt-2">
+
+      <!-- Error message area -->
+      <div id="import-error" class="hidden bg-red-900/30 border border-red-700/50 rounded-lg px-3 py-2 text-red-300 text-xs"></div>
+
+      <!-- Action buttons -->
+      <div class="flex gap-3 pt-1">
         <button onclick="closeModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm">Cancel</button>
-        <button onclick="alert('Purchase batch created'); closeModal();" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Create Batch & Import</button>
+        <button id="import-submit-btn" onclick="submitImportBatch()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">
+          <i class="fas fa-file-import mr-1"></i>Create Batch &amp; Import
+        </button>
       </div>
     </div>
   \`);
+
+  // Set today as default batch date
+  document.getElementById('import-batch-date').value = new Date().toISOString().slice(0, 10);
 }
 
+// ── Import modal: supplier change → auto-fill VAT code ────────────────────────
 function onImportSupplierChange() {
   const sel = document.getElementById('import-supplier-sel');
   const opt = sel && sel.options[sel.selectedIndex];
   if (opt && opt.dataset.vatcode) {
     const vc = document.getElementById('import-vat-code');
     if (vc) vc.value = opt.dataset.vatcode;
+  }
+}
+
+// ── Import modal: drag-and-drop handlers ─────────────────────────────────────
+function onImportDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('import-drop-zone');
+  if (zone) { zone.classList.add('border-blue-500', 'bg-blue-900/20'); zone.classList.remove('border-gray-600'); }
+}
+
+function onImportDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('import-drop-zone');
+  if (zone) { zone.classList.remove('border-blue-500', 'bg-blue-900/20'); zone.classList.add('border-gray-600'); }
+}
+
+function onImportDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('import-drop-zone');
+  if (zone) { zone.classList.remove('border-blue-500', 'bg-blue-900/20'); zone.classList.add('border-gray-600'); }
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (files && files.length > 0) {
+    parseImportCsvFile(files[0]);
+  }
+}
+
+// ── Import modal: file input change ──────────────────────────────────────────
+function onImportFileSelected(e) {
+  const file = e.target && e.target.files && e.target.files[0];
+  if (file) parseImportCsvFile(file);
+}
+
+// ── Import modal: clear selected file ────────────────────────────────────────
+function clearImportFile() {
+  window._importCsvRows = null;
+  const inp = document.getElementById('import-file-input');
+  if (inp) inp.value = '';
+  const badge = document.getElementById('import-file-badge');
+  if (badge) badge.classList.add('hidden');
+  const preview = document.getElementById('import-csv-preview');
+  if (preview) preview.classList.add('hidden');
+  const zone = document.getElementById('import-drop-zone');
+  if (zone) { zone.classList.remove('border-emerald-500', 'bg-emerald-900/10'); zone.classList.add('border-gray-600'); }
+}
+
+// ── Import modal: parse CSV and render preview ────────────────────────────────
+function parseImportCsvFile(file) {
+  const errorEl = document.getElementById('import-error');
+  // Validate extension
+  if (!file.name.toLowerCase().endsWith('.csv') && file.type && !file.type.includes('csv') && !file.type.includes('text')) {
+    if (errorEl) { errorEl.textContent = 'Please select a .csv file.'; errorEl.classList.remove('hidden'); }
+    return;
+  }
+  if (errorEl) errorEl.classList.add('hidden');
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const crRe = new RegExp('\\r', 'g');
+    const lines = text.replace(crRe, '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l; });
+    if (lines.length < 2) {
+      if (errorEl) { errorEl.textContent = 'CSV file must have a header row and at least one data row.'; errorEl.classList.remove('hidden'); }
+      return;
+    }
+
+    // Detect header columns (case-insensitive, trim whitespace)
+    const nonAlphaRe = new RegExp('[^a-z0-9_]', 'g');
+    const rawHeaders = lines[0].split(',').map(function(h){ return h.trim().toLowerCase().replace(nonAlphaRe, ''); });
+    const colIdx = {
+      imei:    rawHeaders.indexOf('imei'),
+      make:    rawHeaders.indexOf('make'),
+      model:   rawHeaders.indexOf('model'),
+      storage: rawHeaders.indexOf('storage'),
+      colour:  rawHeaders.findIndex(function(h){ return h === 'colour' || h === 'color'; }),
+      network: rawHeaders.indexOf('network'),
+      grade:   rawHeaders.indexOf('grade'),
+    };
+    if (colIdx.imei === -1) {
+      if (errorEl) { errorEl.textContent = 'CSV must have an IMEI column.'; errorEl.classList.remove('hidden'); }
+      return;
+    }
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      // Handle quoted CSV fields: split on comma, strip wrapping double-quotes
+      const cols = lines[i].split(',');
+      const quoteRe = new RegExp('^"|"$', 'g');
+      const get = function(idx){ return idx >= 0 && cols[idx] ? cols[idx].replace(quoteRe, '').trim() : ''; };
+      const row = {
+        imei:    get(colIdx.imei),
+        make:    get(colIdx.make),
+        model:   get(colIdx.model),
+        storage: get(colIdx.storage),
+        colour:  get(colIdx.colour),
+        network: get(colIdx.network),
+        grade:   get(colIdx.grade) || 'UNGRADED',
+        _row: i + 1,
+        _errors: [],
+      };
+      if (!row.imei)  row._errors.push('Missing IMEI');
+      else if (!new RegExp('^[0-9]{14,16}$').test(row.imei)) row._errors.push('IMEI must be 14-16 digits');
+      if (!row.make)  row._errors.push('Missing Make');
+      if (!row.model) row._errors.push('Missing Model');
+      // Duplicate within the file
+      if (row.imei && rows.find(function(r){ return r.imei === row.imei; })) row._errors.push('Duplicate in file');
+      rows.push(row);
+    }
+
+    window._importCsvRows = rows;
+    const valid   = rows.filter(function(r){ return r._errors.length === 0; }).length;
+    const invalid = rows.length - valid;
+
+    // Show file badge
+    const badge = document.getElementById('import-file-badge');
+    const nameEl = document.getElementById('import-file-name');
+    if (badge) badge.classList.remove('hidden');
+    if (nameEl) nameEl.textContent = file.name + ' (' + rows.length + ' rows)';
+    const zone = document.getElementById('import-drop-zone');
+    if (zone) { zone.classList.add('border-emerald-500', 'bg-emerald-900/10'); zone.classList.remove('border-gray-600', 'border-blue-500', 'bg-blue-900/10'); }
+
+    // Stats chips
+    const statsEl = document.getElementById('import-csv-stats');
+    if (statsEl) statsEl.innerHTML =
+      '<span class="px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">' + valid + ' valid</span>' +
+      (invalid > 0 ? '<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-700/40">' + invalid + ' errors</span>' : '');
+
+    // Preview table
+    const tableEl = document.getElementById('import-csv-table');
+    if (tableEl) tableEl.innerHTML =
+      '<table class="w-full text-xs min-w-[540px]">' +
+      '<thead><tr class="bg-gray-800 sticky top-0">' +
+      '<th class="text-left p-2 text-gray-400">Row</th>' +
+      '<th class="text-left p-2 text-gray-400">IMEI</th>' +
+      '<th class="text-left p-2 text-gray-400">Make</th>' +
+      '<th class="text-left p-2 text-gray-400">Model</th>' +
+      '<th class="text-left p-2 text-gray-400">Storage</th>' +
+      '<th class="text-left p-2 text-gray-400">Colour</th>' +
+      '<th class="text-left p-2 text-gray-400">Grade</th>' +
+      '<th class="text-left p-2 text-gray-400">Status</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function(r) {
+        const ok = r._errors.length === 0;
+        return '<tr style="background:' + (ok ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.08)') + ';border-bottom:1px solid #374151">' +
+          '<td class="p-2 font-mono text-gray-400">' + r._row + '</td>' +
+          '<td class="p-2 font-mono">' + (r.imei || '<span class="text-red-400">—</span>') + '</td>' +
+          '<td class="p-2">' + (r.make || '—') + '</td>' +
+          '<td class="p-2">' + (r.model || '—') + '</td>' +
+          '<td class="p-2">' + (r.storage || '—') + '</td>' +
+          '<td class="p-2">' + (r.colour || '—') + '</td>' +
+          '<td class="p-2 font-semibold">' + r.grade + '</td>' +
+          '<td class="p-2">' + (ok ? '<span class="text-emerald-400"><i class="fas fa-check mr-1"></i>Valid</span>' : '<span class="text-red-400">' + r._errors.join(', ') + '</span>') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+
+    const previewEl = document.getElementById('import-csv-preview');
+    if (previewEl) previewEl.classList.remove('hidden');
+  };
+  reader.readAsText(file);
+}
+
+// ── Import modal: submit — create batch then import IMEI rows ─────────────────
+async function submitImportBatch() {
+  const errorEl = document.getElementById('import-error');
+  const btn     = document.getElementById('import-submit-btn');
+  const suppId  = (document.getElementById('import-supplier-sel') || {}).value;
+  const invRef  = (document.getElementById('import-inv-ref')      || {}).value.trim();
+  const vatCode = (document.getElementById('import-vat-code')      || {}).value;
+  const batchDate = (document.getElementById('import-batch-date')  || {}).value;
+
+  // Validation
+  if (!suppId)  { errorEl.textContent = 'Please select a supplier.';        errorEl.classList.remove('hidden'); return; }
+  if (!invRef)  { errorEl.textContent = 'Invoice reference is required.';   errorEl.classList.remove('hidden'); return; }
+  if (!window._importCsvRows || !window._importCsvRows.length) {
+    errorEl.textContent = 'Please upload a CSV file before importing.';
+    errorEl.classList.remove('hidden'); return;
+  }
+  const validRows = window._importCsvRows.filter(function(r){ return r._errors.length === 0; });
+  if (!validRows.length) {
+    errorEl.textContent = 'No valid rows found in the CSV — fix errors highlighted in the preview.';
+    errorEl.classList.remove('hidden'); return;
+  }
+  if (errorEl) errorEl.classList.add('hidden');
+
+  // Disable button while processing
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Creating batch…'; }
+
+  try {
+    // Step 1: Create the purchase batch
+    const batchRes = await axios.post(API + '/purchase-batches', {
+      supplier_id: suppId,
+      external_invoice_ref: invRef,
+      batch_date: batchDate || new Date().toISOString().slice(0, 10),
+      currency: 'GBP',
+      total_purchase_value: 0,
+      vat_code: vatCode,
+    });
+    const batchId = batchRes.data.purchase_batch_id;
+
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Importing ' + validRows.length + ' devices…';
+
+    // Step 2: Import IMEI rows
+    const importRes = await axios.post(API + '/purchase-batches/' + batchId + '/imei-import', {
+      rows: validRows,
+    });
+
+    // Step 3: Refresh the batches table in background
+    try {
+      const batches = await axios.get(API + '/purchase-batches').then(function(r){ return r.data; });
+      if (window._suppData) window._suppData.batches = batches;
+      const batchesEl = document.getElementById('batches-content');
+      if (batchesEl && typeof renderBatchesTable === 'function') batchesEl.innerHTML = renderBatchesTable(batches);
+    } catch(_) {}
+
+    // Step 4: Show success inline then close
+    const wrap = document.getElementById('import-modal-wrap');
+    if (wrap) wrap.innerHTML =
+      '<div class="flex flex-col items-center py-8 gap-4">' +
+      '<div class="w-16 h-16 rounded-full bg-emerald-900/40 border-2 border-emerald-500 flex items-center justify-center">' +
+      '<i class="fas fa-check text-emerald-400 text-2xl"></i></div>' +
+      '<div class="text-center">' +
+      '<p class="text-white font-semibold text-base mb-1">Batch ' + batchId + ' created</p>' +
+      '<p class="text-gray-400 text-sm">' + importRes.data.created + ' devices imported to Intake QC</p>' +
+      (importRes.data.duplicates > 0 ? '<p class="text-yellow-400 text-xs mt-1">' + importRes.data.duplicates + ' duplicate IMEIs skipped</p>' : '') +
+      '</div>' +
+      '<button onclick="closeModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg text-sm font-medium">Done</button>' +
+      '</div>';
+
+    window._importCsvRows = null;
+
+  } catch(err) {
+    const msg = (err.response && err.response.data && (err.response.data.error || err.response.data.message)) || 'Import failed — please try again.';
+    if (errorEl) { errorEl.textContent = msg; errorEl.classList.remove('hidden'); }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import mr-1"></i>Create Batch &amp; Import'; }
   }
 }
 

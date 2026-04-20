@@ -65,7 +65,11 @@ api.post('/fintech/calculate', async (c) => {
 });
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
-api.get('/suppliers', (c) => c.json(suppliers));
+api.get('/suppliers', (c) => {
+  const active = c.req.query('active');
+  if (active === 'true') return c.json((suppliers as any[]).filter(s => s.is_active));
+  return c.json(suppliers);
+});
 api.get('/suppliers/:id', (c) => {
   const s = suppliers.find(x => x.supplier_id === c.req.param('id'));
   return s ? c.json(s) : c.notFound();
@@ -76,6 +80,74 @@ api.get('/purchase-batches', (c) => c.json(purchaseBatches));
 api.get('/purchase-batches/:id', (c) => {
   const b = purchaseBatches.find(x => x.purchase_batch_id === c.req.param('id'));
   return b ? c.json(b) : c.notFound();
+});
+
+api.post('/purchase-batches', async (c) => {
+  const body = await c.req.json();
+  const { supplier_id, external_invoice_ref, batch_date, currency, total_purchase_value, vat_code } = body;
+  if (!supplier_id || !external_invoice_ref || !vat_code)
+    return c.json({ error: 'Missing required fields: supplier_id, external_invoice_ref, vat_code' }, 400);
+  const supplier = (suppliers as any[]).find(s => s.supplier_id === supplier_id);
+  if (!supplier) return c.json({ error: 'Supplier not found' }, 404);
+  const year = new Date().getFullYear();
+  const seqNum = String((purchaseBatches as any[]).filter(b => (b as any).batch_code?.startsWith('PB' + year)).length + 1).padStart(3, '0');
+  const batchId = `PB${year}-${seqNum}`;
+  const vatRate = vat_code === '20S_PURCHASES' ? 0.2 : vat_code === '20RC_PURCHASES' ? 0.2 : 0;
+  const purchaseValue = parseFloat(total_purchase_value) || 0;
+  const newBatch: any = {
+    purchase_batch_id: batchId, company_id: 'REFURBIQ_DEMO',
+    supplier_id, supplier_name: supplier.name,
+    external_invoice_ref, batch_code: batchId,
+    batch_date: batch_date || new Date().toISOString().slice(0, 10),
+    currency: currency || 'GBP',
+    total_purchase_value: purchaseValue,
+    vat_code, vat_amount: Math.round(purchaseValue * vatRate * 100) / 100,
+    status: 'PENDING', device_count: 0,
+    created_at: new Date().toISOString(), created_by: 'admin@refurbiq.co.uk',
+  };
+  (purchaseBatches as any[]).push(newBatch);
+  return c.json(newBatch, 201);
+});
+
+api.post('/purchase-batches/:id/imei-import', async (c) => {
+  const batchId = c.req.param('id');
+  const batch = (purchaseBatches as any[]).find(b => b.purchase_batch_id === batchId);
+  if (!batch) return c.json({ error: 'Batch not found' }, 404);
+  const body = await c.req.json();
+  const rows: any[] = body.rows || [];
+  if (!rows.length) return c.json({ error: 'No rows provided' }, 400);
+
+  const results = { created: 0, duplicates: 0, errors: [] as string[] };
+  for (const row of rows) {
+    const imei = (row.imei || '').trim();
+    if (!imei) { results.errors.push(`Row missing IMEI`); continue; }
+    if ((devices as any[]).find(d => (d as any).imei_primary === imei || (d as any).imei === imei)) {
+      results.duplicates++;
+      results.errors.push(`IMEI ${imei} already exists — skipped`);
+      continue;
+    }
+    const newId = 'DEV' + String(Math.floor(Math.random() * 900000) + 100000);
+    const newDevice: any = {
+      device_id: newId, company_id: 'REFURBIQ_DEMO',
+      imei_primary: imei, imei: imei, imei_2: null,
+      make: (row.make || '').trim(), model: (row.model || '').trim(),
+      storage: (row.storage || '').trim(), colour: (row.colour || '').trim(),
+      grade: (row.grade || 'UNGRADED').trim(),
+      network: (row.network || 'UNLOCKED').trim(),
+      supplier_id: batch.supplier_id,
+      purchase_batch_id: batchId,
+      unit_cost: 0, vat_code: batch.vat_code || '20RC_PURCHASES',
+      current_status: 'INTAKE_QC_PENDING', status: 'INTAKE_QC_PENDING',
+      custody: 'WAREHOUSE', location: 'Goods-In Bay',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+    (devices as any[]).push(newDevice);
+    results.created++;
+  }
+  batch.device_count = (batch.device_count || 0) + results.created;
+  batch.status = 'RECEIVED';
+  batch.updated_at = new Date().toISOString();
+  return c.json({ success: true, batch_id: batchId, ...results });
 });
 
 // ── Devices ───────────────────────────────────────────────────────────────────
