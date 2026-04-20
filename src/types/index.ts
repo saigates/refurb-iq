@@ -195,13 +195,17 @@ export interface FintechAdvance {
 export interface Supplier {
   supplier_id: string;
   company_id: string;
-  name: string;
+  supplier_code: string;          // e.g. TECH-01, MWE-02 — primary identifier
+  name: string;                   // full name — Admin-only visibility
   vat_number?: string;
   country: string;
   contact_email?: string;
   default_vat_code: VatCode;
   total_purchases?: number;
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  updated_by?: string;
 }
 
 export interface QCRecord {
@@ -820,4 +824,45 @@ export interface Notification {
   entity_id?: string;
   auto_dismissed: boolean;
   expires_at?: string;
+}
+
+// ── Device Variants / SKU Catalogue ───────────────────────────────────────────
+
+export interface DeviceVariant {
+  variant_id: string;
+  company_id: string;
+  make: string;
+  model: string;
+  storage: string;
+  colour: string;
+  grade: string;
+  sku_code: string;   // auto-generated: APL-IP14-256-BLK-A
+  is_active: boolean;
+  created_at: string;
+  created_by: string;
+}
+
+// ── Grade/Colour Override ─────────────────────────────────────────────────────
+
+export type OverrideReasonCode =
+  | 'GRADE_DISCREPANCY_QC'
+  | 'POST_REPAIR_UPGRADE'
+  | 'POST_REPAIR_DOWNGRADE'
+  | 'COLOUR_MISMATCH'
+  | 'CUSTOMER_RETURN_CONDITION'
+  | 'OTHER';
+
+export interface DeviceAttributeOverride {
+  override_id: string;
+  company_id: string;
+  device_id: string;
+  imei_primary: string;
+  field_changed: 'grade' | 'colour';
+  previous_value: string;
+  new_value: string;
+  reason_code: OverrideReasonCode;
+  notes?: string;
+  changed_by: string;
+  changed_by_name: string;
+  changed_at: string;
 }

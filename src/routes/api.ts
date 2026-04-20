@@ -16,6 +16,7 @@ import {
   tenants, getTenantSaaSSummary,
   marketplaceIntegrations,
   notifications, getNotificationSummary,
+  deviceVariants, deviceAttributeOverrides, generateSkuCode,
 } from '../lib/data-store.js';
 import {
   VAT_CODE_DEFINITIONS, evaluateDRCThreshold, calculateVat,
@@ -442,4 +443,158 @@ api.post('/scanner/intake', async (c) => {
   };
   (devices as any[]).push(newDevice);
   return c.json({ success: true, device_id: newId, status: 'INTAKE_QC_PENDING', message: `Device ${newId} created — awaiting QC` });
+});
+
+// ── Supplier CRUD ─────────────────────────────────────────────────────────────
+
+api.post('/suppliers', async (c) => {
+  const body = await c.req.json();
+  const { supplier_code, name, country, vat_number, contact_email, default_vat_code } = body;
+  if (!supplier_code || !name || !country || !default_vat_code)
+    return c.json({ error: 'Missing required fields: supplier_code, name, country, default_vat_code' }, 400);
+  const dup = suppliers.find(s => s.supplier_code.toUpperCase() === supplier_code.toUpperCase() && s.company_id === 'REFURBIQ_DEMO');
+  if (dup) return c.json({ error: 'DUPLICATE_CODE', message: `Supplier code "${supplier_code}" already exists` }, 409);
+  const newId = 'SUP' + String(Date.now()).slice(-5);
+  const newSupplier = {
+    supplier_id: newId, company_id: 'REFURBIQ_DEMO',
+    supplier_code: supplier_code.toUpperCase(), name, vat_number: vat_number || '',
+    country, contact_email: contact_email || '', default_vat_code, total_purchases: 0, is_active: true,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: 'admin@refurbiq.co.uk',
+  };
+  (suppliers as any[]).push(newSupplier);
+  auditLog.push({ audit_id: 'AUD-' + Date.now(), company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'SUPPLIERS', severity: 'INFO', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `Supplier ${supplier_code} created`, entity_type: 'Supplier', entity_id: newId, after_state: newSupplier, system_generated: false });
+  return c.json({ success: true, supplier_id: newId, supplier_code: newSupplier.supplier_code, message: `Supplier ${newSupplier.supplier_code} added successfully` });
+});
+
+api.patch('/suppliers/:id', async (c) => {
+  const id = c.req.param('id');
+  const s = suppliers.find(x => x.supplier_id === id);
+  if (!s) return c.notFound();
+  const body = await c.req.json();
+  const before = { ...s };
+  if (body.name !== undefined)             s.name = body.name;
+  if (body.contact_email !== undefined)    s.contact_email = body.contact_email;
+  if (body.country !== undefined)          s.country = body.country;
+  if (body.vat_number !== undefined)       s.vat_number = body.vat_number;
+  if (body.default_vat_code !== undefined) s.default_vat_code = body.default_vat_code;
+  if (body.is_active !== undefined)        s.is_active = body.is_active;
+  s.updated_at = new Date().toISOString();
+  s.updated_by = 'admin@refurbiq.co.uk';
+  const eventType = body.is_active === false ? 'SUPPLIER_DEACTIVATED' : 'SUPPLIER_UPDATED';
+  auditLog.push({ audit_id: 'AUD-' + Date.now(), company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'SUPPLIERS', severity: 'INFO', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `${eventType}: ${s.supplier_code}`, entity_type: 'Supplier', entity_id: id, before_state: before, after_state: { ...s }, system_generated: false });
+  return c.json({ success: true, supplier: s });
+});
+
+// ── Device Variants / SKU Catalogue ─────────────────────────────────────────
+
+api.get('/device-variants', (c) => {
+  const { make, model } = c.req.query();
+  let result = deviceVariants.filter(v => v.is_active);
+  if (make) result = result.filter(v => v.make.toLowerCase() === make.toLowerCase());
+  if (model) result = result.filter(v => v.model.toLowerCase() === model.toLowerCase());
+  return c.json(result);
+});
+
+api.get('/device-variants/makes', (c) => {
+  const makes = [...new Set(deviceVariants.filter(v => v.is_active).map(v => v.make))].sort();
+  return c.json(makes);
+});
+
+api.get('/device-variants/models', (c) => {
+  const { make } = c.req.query();
+  let variants = deviceVariants.filter(v => v.is_active);
+  if (make) variants = variants.filter(v => v.make.toLowerCase() === make.toLowerCase());
+  const models = [...new Set(variants.map(v => v.model))].sort();
+  return c.json(models);
+});
+
+api.post('/device-variants', async (c) => {
+  const body = await c.req.json();
+  const { make, model, storage, colour, grade } = body;
+  if (!make || !model || !storage || !colour || !grade)
+    return c.json({ error: 'All fields required: make, model, storage, colour, grade' }, 400);
+  const dup = deviceVariants.find(v => v.make === make && v.model === model && v.storage === storage && v.colour === colour && v.grade === grade);
+  if (dup) return c.json({ error: 'DUPLICATE_VARIANT', message: 'This combination already exists in the catalogue', existing_sku: dup.sku_code }, 409);
+  const sku_code = generateSkuCode(make, model, storage, colour, grade);
+  const newVariant = { variant_id: 'VAR-' + Date.now(), company_id: 'REFURBIQ_DEMO', make, model, storage, colour, grade, sku_code, is_active: true, created_at: new Date().toISOString(), created_by: 'admin@refurbiq.co.uk' };
+  (deviceVariants as any[]).push(newVariant);
+  auditLog.push({ audit_id: 'AUD-' + Date.now(), company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'SYSTEM', severity: 'INFO', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `Device variant added: ${sku_code}`, entity_type: 'DeviceVariant', entity_id: newVariant.variant_id, after_state: newVariant, system_generated: false });
+  return c.json({ success: true, variant: newVariant });
+});
+
+api.post('/device-variants/import', async (c) => {
+  const body = await c.req.json();
+  const { rows, filename } = body; // rows: array of {make,model,storage,colour,grade}
+  if (!Array.isArray(rows) || rows.length === 0)
+    return c.json({ error: 'rows array required' }, 400);
+  const results = { imported: 0, skipped_duplicate: 0, skipped_invalid: 0, skus: [] as string[] };
+  for (const row of rows) {
+    const { make, model, storage, colour, grade } = row;
+    if (!make || !model || !storage || !colour || !grade) { results.skipped_invalid++; continue; }
+    const dup = deviceVariants.find(v => v.make === make && v.model === model && v.storage === storage && v.colour === colour && v.grade === grade);
+    if (dup) { results.skipped_duplicate++; continue; }
+    const sku_code = generateSkuCode(make, model, storage, colour, grade);
+    (deviceVariants as any[]).push({ variant_id: 'VAR-' + Date.now() + results.imported, company_id: 'REFURBIQ_DEMO', make, model, storage, colour, grade, sku_code, is_active: true, created_at: new Date().toISOString(), created_by: 'admin@refurbiq.co.uk' });
+    results.skus.push(sku_code);
+    results.imported++;
+  }
+  auditLog.push({ audit_id: 'AUD-' + Date.now(), company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'SYSTEM', severity: 'INFO', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `DEVICE_VARIANTS_IMPORTED: ${results.imported} variants from ${filename || 'upload'}`, entity_type: 'DeviceVariant', entity_id: 'IMPORT-' + Date.now(), after_state: results, system_generated: false });
+  return c.json({ success: true, ...results });
+});
+
+// ── Device Attribute Overrides ────────────────────────────────────────────────
+
+api.get('/devices/:id/overrides', (c) => {
+  const id = c.req.param('id');
+  const overrides = deviceAttributeOverrides.filter(o => o.device_id === id);
+  return c.json(overrides);
+});
+
+api.post('/devices/:id/override', async (c) => {
+  const id = c.req.param('id');
+  const device = devices.find(d => d.device_id === id);
+  if (!device) return c.notFound();
+  const body = await c.req.json();
+  const { field_changed, new_value, reason_code, notes } = body;
+  if (!field_changed || !new_value || !reason_code)
+    return c.json({ error: 'field_changed, new_value, reason_code are required' }, 400);
+  if (!['grade', 'colour'].includes(field_changed))
+    return c.json({ error: 'field_changed must be "grade" or "colour"' }, 400);
+  if (reason_code === 'OTHER' && (!notes || notes.length < 20))
+    return c.json({ error: 'Notes required (min 20 chars) when reason is OTHER' }, 400);
+  const previous_value = (device as any)[field_changed];
+  (device as any)[field_changed] = new_value;
+  device.last_updated_at = new Date().toISOString();
+  const override = {
+    override_id: 'OVR-' + Date.now(), company_id: 'REFURBIQ_DEMO',
+    device_id: id, imei_primary: device.imei_primary,
+    field_changed: field_changed as 'grade' | 'colour',
+    previous_value, new_value, reason_code, notes: notes || '',
+    changed_by: 'admin@refurbiq.co.uk', changed_by_name: 'Admin User', changed_at: new Date().toISOString(),
+  };
+  (deviceAttributeOverrides as any[]).push(override);
+  auditLog.push({ audit_id: 'AUD-' + Date.now(), company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'INVENTORY', severity: 'WARNING', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `DEVICE_ATTRIBUTE_OVERRIDE: ${field_changed} changed ${previous_value} → ${new_value} on ${id} (${device.imei_primary}). Reason: ${reason_code}`, entity_type: 'Device', entity_id: id, before_state: { [field_changed]: previous_value }, after_state: { [field_changed]: new_value, reason_code, notes }, system_generated: false });
+  return c.json({ success: true, override });
+});
+
+api.post('/devices/batch-override', async (c) => {
+  const body = await c.req.json();
+  const { device_ids, field_changed, new_value, reason_code, notes } = body;
+  if (!Array.isArray(device_ids) || !field_changed || !new_value || !reason_code)
+    return c.json({ error: 'device_ids[], field_changed, new_value, reason_code required' }, 400);
+  if (reason_code === 'OTHER' && (!notes || notes.length < 20))
+    return c.json({ error: 'Notes required (min 20 chars) when reason is OTHER' }, 400);
+  const results: any[] = [];
+  for (const did of device_ids) {
+    const device = devices.find(d => d.device_id === did);
+    if (!device) continue;
+    const previous_value = (device as any)[field_changed];
+    (device as any)[field_changed] = new_value;
+    device.last_updated_at = new Date().toISOString();
+    const override = { override_id: 'OVR-' + Date.now() + did, company_id: 'REFURBIQ_DEMO', device_id: did, imei_primary: device.imei_primary, field_changed, previous_value, new_value, reason_code, notes: notes || '', changed_by: 'admin@refurbiq.co.uk', changed_by_name: 'Admin User', changed_at: new Date().toISOString() };
+    (deviceAttributeOverrides as any[]).push(override);
+    auditLog.push({ audit_id: 'AUD-' + Date.now() + did, company_id: 'REFURBIQ_DEMO', timestamp: new Date().toISOString(), module: 'INVENTORY', severity: 'WARNING', actor: 'admin@refurbiq.co.uk', actor_role: 'ADMIN', action: `DEVICE_ATTRIBUTE_OVERRIDE (BATCH): ${field_changed} ${previous_value} → ${new_value} on ${did}`, entity_type: 'Device', entity_id: did, before_state: { [field_changed]: previous_value }, after_state: { [field_changed]: new_value }, system_generated: false });
+    results.push(override);
+  }
+  return c.json({ success: true, overrides_created: results.length, results });
 });

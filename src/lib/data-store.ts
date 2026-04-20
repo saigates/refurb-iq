@@ -19,10 +19,10 @@ const COMPANY_ID = 'REFURBIQ_DEMO';
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 export const suppliers: Supplier[] = [
-  { supplier_id: 'SUP001', company_id: COMPANY_ID, name: 'TechSource Ltd', vat_number: 'GB123456789', country: 'GB', contact_email: 'buy@techsource.co.uk', default_vat_code: '20RC_PURCHASES', total_purchases: 145200, is_active: true },
-  { supplier_id: 'SUP002', company_id: COMPANY_ID, name: 'Mobile Wholesale EU', vat_number: 'DE987654321', country: 'DE', contact_email: 'sales@mweu.de', default_vat_code: '0MARGIN_PURCHASES', total_purchases: 87450, is_active: true },
-  { supplier_id: 'SUP003', company_id: COMPANY_ID, name: 'PhoneFlip Direct', vat_number: 'GB555123456', country: 'GB', contact_email: 'trade@phoneflip.co.uk', default_vat_code: '20RC_PURCHASES', total_purchases: 62300, is_active: true },
-  { supplier_id: 'SUP004', company_id: COMPANY_ID, name: 'Horizon Devices', vat_number: '', country: 'US', contact_email: 'b2b@horizondev.com', default_vat_code: '0EXPORT_SALES', total_purchases: 34100, is_active: false },
+  { supplier_id: 'SUP001', company_id: COMPANY_ID, supplier_code: 'TECH-01', name: 'TechSource Ltd',       vat_number: 'GB123456789', country: 'GB', contact_email: 'buy@techsource.co.uk',   default_vat_code: '20RC_PURCHASES',   total_purchases: 145200, is_active: true,  created_at: '2025-11-01', updated_at: '2026-04-01', updated_by: 'admin@refurbiq.co.uk' },
+  { supplier_id: 'SUP002', company_id: COMPANY_ID, supplier_code: 'MWE-01',  name: 'Mobile Wholesale EU', vat_number: 'DE987654321', country: 'DE', contact_email: 'sales@mweu.de',         default_vat_code: '0MARGIN_PURCHASES', total_purchases: 87450,  is_active: true,  created_at: '2025-11-15', updated_at: '2026-03-10', updated_by: 'admin@refurbiq.co.uk' },
+  { supplier_id: 'SUP003', company_id: COMPANY_ID, supplier_code: 'PFD-01',  name: 'PhoneFlip Direct',    vat_number: 'GB555123456', country: 'GB', contact_email: 'trade@phoneflip.co.uk', default_vat_code: '20RC_PURCHASES',   total_purchases: 62300,  is_active: true,  created_at: '2025-12-01', updated_at: '2026-02-20', updated_by: 'admin@refurbiq.co.uk' },
+  { supplier_id: 'SUP004', company_id: COMPANY_ID, supplier_code: 'HRZ-01',  name: 'Horizon Devices',     vat_number: '',           country: 'US', contact_email: 'b2b@horizondev.com',   default_vat_code: '0EXPORT_SALES',   total_purchases: 34100,  is_active: false, created_at: '2026-01-10', updated_at: '2026-03-01', updated_by: 'admin@refurbiq.co.uk' },
 ];
 
 // ── Purchase Batches ──────────────────────────────────────────────────────────
@@ -1041,4 +1041,45 @@ export function getNotificationSummary() {
   const critical = notifications.filter(n => n.severity === 'CRITICAL' && !n.read).length;
   const warning = notifications.filter(n => n.severity === 'WARNING' && !n.read).length;
   return { total: notifications.length, unread, critical, warning };
+}
+
+// ── Device Variants / SKU Catalogue ──────────────────────────────────────────
+
+export const deviceVariants: DeviceVariant[] = [
+  { variant_id: 'VAR-001', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 14 Pro',    storage: '256GB', colour: 'Space Black',    grade: 'A', sku_code: 'APL-IP14P-256-BLK-A',  is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-002', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 14 Pro',    storage: '256GB', colour: 'Space Black',    grade: 'B', sku_code: 'APL-IP14P-256-BLK-B',  is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-003', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 14 Pro',    storage: '256GB', colour: 'Deep Purple',    grade: 'A', sku_code: 'APL-IP14P-256-PRP-A',  is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-004', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 13',        storage: '128GB', colour: 'Midnight',       grade: 'A', sku_code: 'APL-IP13-128-MID-A',   is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-005', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 13',        storage: '128GB', colour: 'Starlight',      grade: 'B', sku_code: 'APL-IP13-128-STR-B',   is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-006', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 15',        storage: '128GB', colour: 'Pink',           grade: 'A', sku_code: 'APL-IP15-128-PNK-A',   is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-007', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 13 Pro Max',storage: '256GB', colour: 'Sierra Blue',    grade: 'B', sku_code: 'APL-IP13PM-256-SBL-B', is_active: true, created_at: '2026-01-10', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-008', company_id: COMPANY_ID, make: 'Samsung', model: 'Galaxy S24 Ultra', storage: '512GB', colour: 'Titanium Black', grade: 'A', sku_code: 'SAM-GS24U-512-TBK-A',  is_active: true, created_at: '2026-01-12', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-009', company_id: COMPANY_ID, make: 'Samsung', model: 'Galaxy S24 Ultra', storage: '512GB', colour: 'Titanium Black', grade: 'B', sku_code: 'SAM-GS24U-512-TBK-B',  is_active: true, created_at: '2026-01-12', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-010', company_id: COMPANY_ID, make: 'Samsung', model: 'Galaxy A54',       storage: '256GB', colour: 'Awesome White',  grade: 'B', sku_code: 'SAM-GA54-256-AWH-B',   is_active: true, created_at: '2026-01-12', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-011', company_id: COMPANY_ID, make: 'Samsung', model: 'Galaxy A54',       storage: '256GB', colour: 'Awesome White',  grade: 'C', sku_code: 'SAM-GA54-256-AWH-C',   is_active: true, created_at: '2026-01-12', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-012', company_id: COMPANY_ID, make: 'Google',  model: 'Pixel 8 Pro',      storage: '256GB', colour: 'Obsidian',       grade: 'A', sku_code: 'GOG-PX8P-256-OBS-A',   is_active: true, created_at: '2026-01-15', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-013', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 11',        storage: '64GB',  colour: 'Black',          grade: 'A', sku_code: 'APL-IP11-64-BLK-A',    is_active: true, created_at: '2026-02-01', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-014', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 11',        storage: '64GB',  colour: 'Black',          grade: 'B', sku_code: 'APL-IP11-64-BLK-B',    is_active: true, created_at: '2026-02-01', created_by: 'admin@refurbiq.co.uk' },
+  { variant_id: 'VAR-015', company_id: COMPANY_ID, make: 'Apple',   model: 'iPhone 12',        storage: '128GB', colour: 'Blue',           grade: 'A', sku_code: 'APL-IP12-128-BLU-A',   is_active: true, created_at: '2026-02-01', created_by: 'admin@refurbiq.co.uk' },
+];
+
+// ── Device Attribute Overrides ────────────────────────────────────────────────
+
+export const deviceAttributeOverrides: DeviceAttributeOverride[] = [
+  {
+    override_id: 'OVR-001', company_id: COMPANY_ID, device_id: 'DEV003', imei_primary: '354678901234569',
+    field_changed: 'grade', previous_value: 'C', new_value: 'B', reason_code: 'POST_REPAIR_UPGRADE',
+    notes: 'Battery replacement completed. Post-repair QC upgraded grade.',
+    changed_by: 'admin@refurbiq.co.uk', changed_by_name: 'Admin User', changed_at: '2026-03-16T14:30:00Z',
+  },
+];
+
+export function generateSkuCode(make: string, model: string, storage: string, colour: string, grade: string): string {
+  const makeMap: Record<string, string> = { Apple:'APL', Samsung:'SAM', Google:'GOG', OnePlus:'OPL', Xiaomi:'XMI', Sony:'SNY', Nokia:'NKA', Motorola:'MOT' };
+  const makeShort = makeMap[make] || make.substring(0,3).toUpperCase();
+  const modelShort = model.replace(/[^a-zA-Z0-9]/g,'').replace(/iPhone/i,'IP').replace(/Galaxy/i,'G').replace(/Pixel/i,'PX').substring(0,6).toUpperCase();
+  const storShort = storage.replace(/[^0-9a-zA-Z]/g,'').toUpperCase();
+  const colourMap: Record<string, string> = { Black:'BLK', White:'WHT', Blue:'BLU', Red:'RED', Green:'GRN', Pink:'PNK', Purple:'PRP', Gold:'GLD', Silver:'SLV', Midnight:'MID', Starlight:'STR', Obsidian:'OBS' };
+  const colShort = colourMap[colour] || colour.replace(/\s+/g,'').substring(0,3).toUpperCase();
+  return [makeShort, modelShort, storShort, colShort, grade.toUpperCase()].join('-');
 }

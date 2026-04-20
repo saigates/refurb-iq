@@ -1018,41 +1018,109 @@ function filterDevices() {
 
 async function viewDevice(id) {
   const d = await axios.get(API + '/devices/' + id).then(r => r.data);
+  const overrides = await axios.get(API + '/devices/' + id + '/overrides').then(r => r.data).catch(() => []);
+
   const qcHtml = d.qc_records?.map(q => \`
-    <div class="bg-gray-800 rounded-lg p-4 mt-3">
+    <div class="rounded-lg p-4 mt-2 border" style="background:var(--bg-sidebar); border-color:var(--border)">
       <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-medium text-white">\${q.qc_type} QC — \${fmtDate(q.performed_at)}</span>
+        <span class="text-sm font-medium" style="color:var(--text-primary)">\${q.qc_type} QC — \${fmtDate(q.performed_at)}</span>
         <span class="text-xs px-2 py-0.5 rounded-full \${q.outcome === 'PASS' ? 'bg-emerald-500/20 text-emerald-400' : q.outcome === 'LOCKED_BLOCKED' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}">\${q.outcome}</span>
       </div>
-      <div class="grid grid-cols-2 gap-2 text-xs text-gray-400">
-        <span>Lock Check: <strong class="\${q.lock_check_result === 'CLEAR' ? 'text-emerald-400' : 'text-red-400'}">\${q.lock_check_result}</strong></span>
-        <span>Grade: <strong class="text-white">\${q.grade_assigned}</strong></span>
+      <div class="grid grid-cols-2 gap-2 text-xs" style="color:var(--text-secondary)">
+        <span>Lock: <strong class="\${q.lock_check_result === 'CLEAR' ? 'text-emerald-400' : 'text-red-400'}">\${q.lock_check_result}</strong></span>
+        <span>Grade: <strong style="color:var(--text-primary)">\${q.grade_assigned}</strong></span>
       </div>
-      \${q.outcome === 'LOCKED_BLOCKED' ? \`<div class="mt-2 bg-red-900/30 border border-red-700/30 rounded px-3 py-2 text-xs text-red-300"><i class="fas fa-lock mr-1"></i>\${q.notes}</div>\` : ''}
       <div class="mt-2 flex flex-wrap gap-1">
         \${q.functional_tests.map(t => \`<span class="text-xs px-2 py-0.5 rounded \${t.result === 'PASS' ? 'bg-emerald-900/30 text-emerald-400' : t.result === 'FAIL' ? 'bg-red-900/30 text-red-400' : 'bg-gray-700 text-gray-400'}">\${t.test_name}: \${t.result}</span>\`).join('')}
       </div>
     </div>
-  \`).join('') || '<p class="text-sm text-gray-500 mt-2">No QC records</p>';
+  \`).join('') || '<p class="text-sm mt-2" style="color:var(--text-muted)">No QC records</p>';
+
+  const overridesHtml = overrides.length ? overrides.map(ov => \`
+    <div class="flex items-start gap-2 p-3 rounded-lg border mt-2" style="background:rgba(245,158,11,0.08); border-color:rgba(245,158,11,0.3)">
+      <i class="fas fa-flag text-amber-400 mt-0.5 flex-shrink-0 text-xs"></i>
+      <div class="text-xs" style="color:var(--text-secondary)">
+        <span class="font-semibold text-amber-400">\${ov.field_changed.toUpperCase()} OVERRIDE</span>
+        &nbsp;·&nbsp;\${ov.previous_value} → <strong style="color:var(--text-primary)">\${ov.new_value}</strong>
+        &nbsp;·&nbsp;\${ov.reason_code.replace(/_/g,' ')}
+        \${ov.notes ? \`&nbsp;·&nbsp;<span style="color:var(--text-muted)">\${ov.notes}</span>\` : ''}
+        <div class="mt-0.5 opacity-60">\${ov.changed_by} · \${fmtDate(ov.changed_at)}</div>
+      </div>
+    </div>
+  \`).join('') : '';
 
   openModal(\`\${d.make} \${d.model} — \${d.imei_primary}\`, \`
     <div class="space-y-4">
       <div class="grid grid-cols-2 gap-3 text-sm">
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Status</span><div class="mt-1">\${statusBadge(d.current_status, 'device')}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Grade</span><div class="mt-1 font-bold text-white text-lg">\${d.grade}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Cost Price</span><div class="mt-1 font-bold text-white">\${fmt(d.cost_price)}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Landed Cost</span><div class="mt-1 font-bold text-white">\${fmt(d.landed_cost)}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Storage / Colour</span><div class="mt-1 text-white">\${d.storage} · \${d.colour}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Network</span><div class="mt-1 text-white">\${d.network}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">Purchase Batch</span><div class="mt-1 text-blue-400">\${d.purchase_batch_id || '—'}</div></div>
-        <div class="bg-gray-800 rounded-lg p-3"><span class="text-gray-400">VAT Code</span><div class="mt-1">\${vatCodeBadge(d.purchase_vat_code)}</div></div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">Status</span>
+          <div class="mt-1">\${statusBadge(d.current_status, 'device')}</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <div class="flex items-center justify-between">
+            <span style="color:var(--text-muted)">Grade</span>
+            <button onclick="showDeviceOverridePanel('\${d.device_id}','grade','\${d.grade}','\${d.purchase_vat_code}')"
+              class="text-amber-400 hover:text-amber-300 text-xs flex items-center gap-1 hover:opacity-80"
+              title="Override Grade (Manager+)">
+              <i class="fas fa-pencil-alt"></i> Override
+            </button>
+          </div>
+          <div class="mt-1 font-bold text-lg" style="color:var(--text-primary)">
+            <span id="device-grade-display">\${d.grade}</span>
+          </div>
+          <div id="grade-override-container"></div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">Cost Price</span>
+          <div class="mt-1 font-bold" style="color:var(--text-primary)">\${fmt(d.cost_price)}</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">Landed Cost</span>
+          <div class="mt-1 font-bold" style="color:var(--text-primary)">\${fmt(d.landed_cost)}</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <div class="flex items-center justify-between">
+            <span style="color:var(--text-muted)">Colour</span>
+            <button onclick="showDeviceOverridePanel('\${d.device_id}','colour','\${d.colour}','\${d.purchase_vat_code}')"
+              class="text-amber-400 hover:text-amber-300 text-xs flex items-center gap-1 hover:opacity-80"
+              title="Override Colour (Manager+)">
+              <i class="fas fa-pencil-alt"></i> Override
+            </button>
+          </div>
+          <div class="mt-1" style="color:var(--text-primary)">
+            \${d.storage} · <span id="device-colour-display">\${d.colour}</span>
+          </div>
+          <div id="colour-override-container"></div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">Network</span>
+          <div class="mt-1" style="color:var(--text-primary)">\${d.network}</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">Purchase Batch</span>
+          <div class="mt-1 text-blue-400">\${d.purchase_batch_id || '—'}</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-sidebar)">
+          <span style="color:var(--text-muted)">VAT Code</span>
+          <div class="mt-1">\${vatCodeBadge(d.purchase_vat_code)}</div>
+        </div>
       </div>
+      \${overridesHtml ? \`<div><h4 class="font-semibold text-amber-400 text-sm mb-1 flex items-center gap-2"><i class="fas fa-flag text-xs"></i>Attribute Override History</h4>\${overridesHtml}</div>\` : ''}
       <div>
-        <h4 class="font-semibold text-white mb-1">QC History</h4>
+        <h4 class="font-semibold mb-1 text-sm" style="color:var(--text-primary)">QC History</h4>
         \${qcHtml}
       </div>
     </div>
   \`);
+}
+
+function showDeviceOverridePanel(deviceId, field, currentValue, purchaseVatCode) {
+  const containerId = field + '-override-container';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  // Toggle: if already showing, remove it
+  if (container.innerHTML.trim()) { container.innerHTML = ''; return; }
+  container.innerHTML = renderOverridePanel(deviceId, field, currentValue, purchaseVatCode);
 }
 
 function showImportModal() {
@@ -1957,11 +2025,10 @@ async function renderSuppliers() {
 
   document.getElementById('page-content').innerHTML = \`
     <div class="fade-in space-y-6">
-      <!-- Tabs -->
-      <div class="border-b border-gray-800">
+      <div class="border-b" style="border-color:var(--border)">
         <div class="flex gap-6">
-          <button id="stab-batches" onclick="showSuppTab('batches')" class="pb-3 text-sm font-medium text-blue-400 tab-active">Purchase Batches</button>
-          <button id="stab-suppliers" onclick="showSuppTab('suppliers')" class="pb-3 text-sm font-medium text-gray-400 hover:text-white">Suppliers</button>
+          <button id="stab-batches"   onclick="showSuppTab('batches')"   class="pb-3 text-sm font-medium text-blue-400 tab-active">Purchase Batches</button>
+          <button id="stab-suppliers" onclick="showSuppTab('suppliers')" class="pb-3 text-sm font-medium hover:text-white" style="color:var(--text-secondary)">Suppliers</button>
         </div>
       </div>
       <div id="supp-content">
@@ -1980,42 +2047,320 @@ function renderBatchesTable(batches) {
       </button>
     </div>
     \${table(
-      ['Batch Code', 'Supplier', 'Invoice Ref', 'Date', 'Devices', 'Total Value', 'VAT Code', 'VAT Amount', 'Status'],
+      ['Batch Code', 'Supplier', 'Invoice Ref', 'Date', 'Devices', 'Total Value', 'VAT Code', 'Status', 'Actions'],
       batches.map(b => [
         \`<span class="font-mono text-xs text-blue-300">\${b.batch_code}</span>\`,
         b.supplier_name,
         \`<span class="text-xs text-gray-400">\${b.external_invoice_ref}</span>\`,
         fmtDate(b.batch_date),
-        \`<span class="font-bold text-white">\${b.device_count}</span>\`,
+        \`<span class="font-bold" style="color:var(--text-primary)">\${b.device_count}</span>\`,
         fmt(b.total_purchase_value),
         vatCodeBadge(b.vat_code),
-        b.vat_amount > 0 ? \`<span class="text-amber-400">\${fmt(b.vat_amount)}</span>\` : '<span class="text-gray-500">—</span>',
         statusBadge(b.status, 'batch'),
+        \`<button onclick="openBulkOverrideModal('\${b.batch_id}','\${b.batch_code}','\${b.vat_code}')"
+          class="text-xs text-amber-400 hover:text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-lg hover:opacity-80 whitespace-nowrap">
+          <i class="fas fa-layer-group mr-1"></i>Bulk Override
+        </button>\`,
       ])
     )}
   </div>\`;
 }
 
+function renderSuppliersTable(suppliers) {
+  const VAT_CODES = ['20S_SALES','20S_PURCHASES','20RC_PURCHASES','0RCS_SALES','0MARGIN_PURCHASES','0MARGIN_SALES','0EXPORT_SALES','NOVAT_PURCHASES'];
+  const COUNTRIES = [{v:'GB',l:'GB \u2014 United Kingdom'},{v:'DE',l:'DE \u2014 Germany'},{v:'FR',l:'FR \u2014 France'},{v:'US',l:'US \u2014 United States'},{v:'IE',l:'IE \u2014 Ireland'},{v:'NL',l:'NL \u2014 Netherlands'},{v:'PL',l:'PL \u2014 Poland'},{v:'ES',l:'ES \u2014 Spain'},{v:'IT',l:'IT \u2014 Italy'},{v:'CN',l:'CN \u2014 China'}];
+
+  function supplierMenuBtn(s) {
+    const sid = s.supplier_id;
+    const scode = s.supplier_code;
+    const encodedS = JSON.stringify(s).replace(/"/g, '&quot;');
+    const toggleLabel = s.is_active ? 'Deactivate' : 'Reactivate';
+    const toggleIcon  = s.is_active ? 'fa-ban text-red-400' : 'fa-check text-emerald-400';
+    const toggleCls   = s.is_active ? 'text-red-400' : 'text-emerald-400';
+    const toggleFn    = s.is_active ? 'deactivateSupplier' : 'reactivateSupplier';
+    return '<div class="relative inline-block">'
+      + '<button data-smid="' + sid + '" onclick="toggleSupplierMenu(this.dataset.smid)" class="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style="background:var(--bg-card-h); color:var(--text-secondary)"><i class="fas fa-ellipsis-v text-sm"></i></button>'
+      + '<div id="smenu-' + sid + '" class="hidden absolute right-0 top-9 z-50 rounded-lg shadow-xl border py-1 min-w-max" style="background:var(--bg-card); border-color:var(--border-light)">'
+      + '<button onclick="openSupplierDrawer(' + encodedS + ')" class="w-full text-left px-4 py-2 text-sm hover:opacity-80" style="color:var(--text-primary)"><i class="fas fa-edit w-4 mr-2 text-blue-400"></i>Edit</button>'
+      + '<button data-sid="' + sid + '" data-scode="' + scode + '" onclick="' + toggleFn + '(this.dataset.sid,this.dataset.scode)" class="w-full text-left px-4 py-2 text-sm ' + toggleCls + ' hover:opacity-80"><i class="fas ' + toggleIcon + ' w-4 mr-2"></i>' + toggleLabel + '</button>'
+      + '</div></div>';
+  }
+
+  function statusCell(isActive) {
+    return isActive
+      ? '<span class="text-xs text-emerald-400 font-medium">\u25cf Active</span>'
+      : '<span class="text-xs text-gray-500 font-medium">\u25cb Inactive</span>';
+  }
+
+  const tableRows = suppliers.map(function(s) {
+    return '<tr class="border-b transition-opacity hover:opacity-80" style="border-color:var(--border)">'
+      + '<td class="py-3 px-4"><span class="font-mono text-sm font-bold text-blue-400">' + s.supplier_code + '</span></td>'
+      + '<td class="py-3 px-4"><div class="font-medium" style="color:var(--text-primary)">' + s.name + '</div><div class="text-xs" style="color:var(--text-muted)">' + (s.contact_email || '') + '</div></td>'
+      + '<td class="py-3 px-4"><span class="font-mono text-xs" style="color:var(--text-secondary)">' + s.country + '</span></td>'
+      + '<td class="py-3 px-4"><span class="font-mono text-xs" style="color:var(--text-secondary)">' + (s.vat_number || '\u2014') + '</span></td>'
+      + '<td class="py-3 px-4">' + vatCodeBadge(s.default_vat_code) + '</td>'
+      + '<td class="py-3 px-4">' + fmt(s.total_purchases || 0) + '</td>'
+      + '<td class="py-3 px-4">' + statusCell(s.is_active) + '</td>'
+      + '<td class="py-3 px-4 text-right">' + supplierMenuBtn(s) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  const countryOptions = COUNTRIES.map(function(c) { return '<option value="' + c.v + '">' + c.l + '</option>'; }).join('');
+  const vatCodeOptions = VAT_CODES.map(function(vc) { return '<option value="' + vc + '">' + vc + '</option>'; }).join('');
+
+  const drawerHtml = '<div id="supplier-drawer" class="fixed inset-y-0 right-0 z-50 w-96 shadow-2xl border-l transform translate-x-full transition-transform duration-300 flex flex-col" style="background:var(--bg-card); border-color:var(--border-light)">'
+    + '<div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style="border-color:var(--border)">'
+    + '<h2 id="drawer-title" class="font-semibold text-base" style="color:var(--text-primary)">Add Supplier</h2>'
+    + '<button onclick="closeSupplierDrawer()" class="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style="background:var(--bg-sidebar-h); color:var(--text-muted)"><i class="fas fa-times"></i></button>'
+    + '</div>'
+    + '<div class="flex-1 overflow-y-auto p-5 space-y-4 text-sm">'
+    + '<input type="hidden" id="drawer-supplier-id" value="" />'
+    + '<input type="hidden" id="drawer-edit-mode" value="add" />'
+    + '<input type="hidden" id="drawer-original-vat-code" value="" />'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Supplier Code <span class="text-red-400">*</span></label>'
+    + '<input id="d-scode" type="text" placeholder="e.g. TECH-01" maxlength="20" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">'
+    + '<div id="d-scode-err" class="text-xs text-red-400 mt-1 hidden"></div></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Full Name <span class="text-red-400">*</span> <span class="ml-1 text-xs bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded">[ADMIN ONLY]</span></label>'
+    + '<input id="d-name" type="text" placeholder="e.g. TechSource Ltd" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">'
+    + '<div id="d-name-err" class="text-xs text-red-400 mt-1 hidden"></div></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Email</label>'
+    + '<input id="d-email" type="email" placeholder="contact@supplier.com" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Country <span class="text-red-400">*</span></label>'
+    + '<select id="d-country" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"><option value="">Select country...</option>' + countryOptions + '</select></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">VAT Number</label>'
+    + '<input id="d-vat" type="text" placeholder="e.g. GB123456789" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Default VAT Code <span class="text-red-400">*</span></label>'
+    + '<select id="d-vatcode" onchange="onDrawerVatCodeChange()" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"><option value="">Select VAT code...</option>' + vatCodeOptions + '</select>'
+    + '<div id="d-vatcode-warning" class="hidden mt-2 p-3 rounded-lg border text-xs" style="background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.4); color:#fbbf24">'
+    + '<i class="fas fa-exclamation-triangle mr-1"></i>This will apply to new batches only. Existing batch VAT codes will not be changed.'
+    + '<div class="flex gap-2 mt-2"><button onclick="confirmVatCodeChange()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-medium">Confirm Change</button>'
+    + '<button onclick="cancelVatCodeChange()" class="text-xs px-3 py-1 rounded border" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button></div></div></div>'
+    + '<div><label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Status</label>'
+    + '<div class="flex items-center gap-3">'
+    + '<button id="d-status-btn" type="button" onclick="toggleDrawerStatus()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-emerald-600">'
+    + '<span id="d-status-knob" class="inline-block h-4 w-4 rounded-full bg-white transform translate-x-6 transition-transform"></span>'
+    + '</button><span id="d-status-label" class="text-sm text-emerald-400 font-medium">Active</span>'
+    + '<input type="hidden" id="d-status" value="true">'
+    + '</div></div>'
+    + '</div>'
+    + '<div class="flex-shrink-0 border-t px-5 py-4 flex gap-3" style="border-color:var(--border)">'
+    + '<button onclick="closeSupplierDrawer()" class="flex-1 rounded-lg py-2.5 text-sm font-medium border hover:opacity-80" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button>'
+    + '<button onclick="saveSupplier()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"><i class="fas fa-save mr-2"></i><span id="drawer-save-label">Add Supplier</span></button>'
+    + '</div></div>'
+    + '<div id="supplier-drawer-bg" class="fixed inset-0 z-40 hidden" style="background:rgba(0,0,0,0.5)" onclick="closeSupplierDrawer()"></div>';
+
+  return '<div class="space-y-4 relative">'
+    + '<div id="supplier-toast" class="hidden fixed top-5 right-5 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-medium text-white border" style="min-width:260px"></div>'
+    + '<div class="flex items-center justify-between">'
+    + '<div class="text-sm" style="color:var(--text-muted)">' + suppliers.length + ' suppliers \u00b7 ' + suppliers.filter(function(s){return s.is_active;}).length + ' active</div>'
+    + '<button onclick="openSupplierDrawer(null)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><i class="fas fa-plus"></i> Add Supplier</button>'
+    + '</div>'
+    + '<div class="overflow-x-auto rounded-xl border" style="border-color:var(--border)">'
+    + '<table class="w-full text-sm"><thead><tr class="border-b" style="border-color:var(--border); background:var(--bg-sidebar)">'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Supplier Code</th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Full Name <span class="ml-1 bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded text-xs font-medium normal-case tracking-normal">ADMIN ONLY</span></th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Country</th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">VAT Number</th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Default VAT Code</th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Total Purchases</th>'
+    + '<th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Status</th>'
+    + '<th class="py-3 px-4"></th>'
+    + '</tr></thead><tbody>' + tableRows + '</tbody></table>'
+    + '</div>'
+    + drawerHtml
+    + '</div>';
+}
 function showSuppTab(tab) {
-  document.querySelectorAll('[id^="stab-"]').forEach(el => { el.classList.remove('text-blue-400', 'tab-active'); el.classList.add('text-gray-400'); });
-  document.getElementById('stab-' + tab).classList.add('text-blue-400', 'tab-active');
+  document.querySelectorAll('[id^="stab-"]').forEach(el => {
+    el.classList.remove('text-blue-400', 'tab-active');
+    el.style.color = 'var(--text-secondary)';
+  });
+  const activeTab = document.getElementById('stab-' + tab);
+  if (activeTab) { activeTab.classList.add('text-blue-400', 'tab-active'); activeTab.style.color = ''; }
   const { suppliers, batches } = window._suppData || { suppliers: [], batches: [] };
   if (tab === 'batches') {
     document.getElementById('supp-content').innerHTML = renderBatchesTable(batches);
   } else {
-    document.getElementById('supp-content').innerHTML = table(
-      ['Supplier', 'Country', 'VAT Number', 'Default VAT Code', 'Total Purchases', 'Status'],
-      suppliers.map(s => [
-        \`<div class="font-medium text-white">\${s.name}</div><div class="text-xs text-gray-400">\${s.contact_email || ''}</div>\`,
-        s.country,
-        \`<span class="font-mono text-xs text-gray-400">\${s.vat_number || '—'}</span>\`,
-        vatCodeBadge(s.default_vat_code),
-        fmt(s.total_purchases || 0),
-        s.is_active ? '<span class="text-xs text-emerald-400">Active</span>' : '<span class="text-xs text-gray-500">Inactive</span>',
-      ])
-    );
+    document.getElementById('supp-content').innerHTML = renderSuppliersTable(suppliers);
   }
 }
+
+function openSupplierDrawer(supplier) {
+  document.querySelectorAll('[id^="smenu-"]').forEach(el => el.classList.add('hidden'));
+  const drawer = document.getElementById('supplier-drawer');
+  const bg = document.getElementById('supplier-drawer-bg');
+  if (!drawer) return;
+  document.getElementById('d-vatcode-warning').classList.add('hidden');
+  ['d-scode-err','d-name-err'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.add('hidden'); });
+  if (supplier) {
+    document.getElementById('drawer-title').textContent = 'Edit Supplier';
+    document.getElementById('drawer-save-label').textContent = 'Save Changes';
+    document.getElementById('drawer-edit-mode').value = 'edit';
+    document.getElementById('drawer-supplier-id').value = supplier.supplier_id;
+    document.getElementById('d-scode').value = supplier.supplier_code;
+    document.getElementById('d-scode').disabled = true;
+    document.getElementById('d-scode').style.opacity = '0.6';
+    document.getElementById('d-name').value = supplier.name;
+    document.getElementById('d-email').value = supplier.contact_email || '';
+    document.getElementById('d-country').value = supplier.country;
+    document.getElementById('d-vat').value = supplier.vat_number || '';
+    document.getElementById('d-vatcode').value = supplier.default_vat_code;
+    document.getElementById('drawer-original-vat-code').value = supplier.default_vat_code;
+    const isActive = supplier.is_active;
+    document.getElementById('d-status').value = String(isActive);
+    document.getElementById('d-status-btn').className = 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (isActive ? 'bg-emerald-600' : 'bg-gray-600');
+    document.getElementById('d-status-knob').className = 'inline-block h-4 w-4 rounded-full bg-white transform transition-transform ' + (isActive ? 'translate-x-6' : 'translate-x-1');
+    document.getElementById('d-status-label').textContent = isActive ? 'Active' : 'Inactive';
+    document.getElementById('d-status-label').className = 'text-sm font-medium ' + (isActive ? 'text-emerald-400' : 'text-gray-400');
+  } else {
+    document.getElementById('drawer-title').textContent = 'Add Supplier';
+    document.getElementById('drawer-save-label').textContent = 'Add Supplier';
+    document.getElementById('drawer-edit-mode').value = 'add';
+    document.getElementById('drawer-supplier-id').value = '';
+    document.getElementById('d-scode').value = '';
+    document.getElementById('d-scode').disabled = false;
+    document.getElementById('d-scode').style.opacity = '1';
+    document.getElementById('d-name').value = '';
+    document.getElementById('d-email').value = '';
+    document.getElementById('d-country').value = '';
+    document.getElementById('d-vat').value = '';
+    document.getElementById('d-vatcode').value = '';
+    document.getElementById('drawer-original-vat-code').value = '';
+    document.getElementById('d-status').value = 'true';
+    document.getElementById('d-status-btn').className = 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-emerald-600';
+    document.getElementById('d-status-knob').className = 'inline-block h-4 w-4 rounded-full bg-white transform translate-x-6 transition-transform';
+    document.getElementById('d-status-label').textContent = 'Active';
+    document.getElementById('d-status-label').className = 'text-sm font-medium text-emerald-400';
+  }
+  drawer.classList.remove('translate-x-full');
+  bg.classList.remove('hidden');
+}
+
+function closeSupplierDrawer() {
+  const drawer = document.getElementById('supplier-drawer');
+  const bg = document.getElementById('supplier-drawer-bg');
+  if (drawer) drawer.classList.add('translate-x-full');
+  if (bg) bg.classList.add('hidden');
+}
+
+function toggleSupplierMenu(id) {
+  document.querySelectorAll('[id^="smenu-"]').forEach(el => { if (el.id !== 'smenu-' + id) el.classList.add('hidden'); });
+  document.getElementById('smenu-' + id)?.classList.toggle('hidden');
+  // Close on outside click
+  setTimeout(() => {
+    const handler = (e) => { const menu = document.getElementById('smenu-' + id); if (menu && !menu.contains(e.target)) { menu.classList.add('hidden'); document.removeEventListener('click', handler); } };
+    document.addEventListener('click', handler);
+  }, 10);
+}
+
+function toggleDrawerStatus() {
+  const cur = document.getElementById('d-status').value === 'true';
+  const next = !cur;
+  document.getElementById('d-status').value = String(next);
+  document.getElementById('d-status-btn').className = 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (next ? 'bg-emerald-600' : 'bg-gray-600');
+  document.getElementById('d-status-knob').className = 'inline-block h-4 w-4 rounded-full bg-white transform transition-transform ' + (next ? 'translate-x-6' : 'translate-x-1');
+  document.getElementById('d-status-label').textContent = next ? 'Active' : 'Inactive';
+  document.getElementById('d-status-label').className = 'text-sm font-medium ' + (next ? 'text-emerald-400' : 'text-gray-400');
+}
+
+function onDrawerVatCodeChange() {
+  const isEdit = document.getElementById('drawer-edit-mode').value === 'edit';
+  if (!isEdit) return;
+  const newCode = document.getElementById('d-vatcode').value;
+  const origCode = document.getElementById('drawer-original-vat-code').value;
+  if (newCode !== origCode && origCode) {
+    document.getElementById('d-vatcode-warning').classList.remove('hidden');
+  } else {
+    document.getElementById('d-vatcode-warning').classList.add('hidden');
+  }
+}
+
+function confirmVatCodeChange() {
+  document.getElementById('drawer-original-vat-code').value = document.getElementById('d-vatcode').value;
+  document.getElementById('d-vatcode-warning').classList.add('hidden');
+}
+
+function cancelVatCodeChange() {
+  document.getElementById('d-vatcode').value = document.getElementById('drawer-original-vat-code').value;
+  document.getElementById('d-vatcode-warning').classList.add('hidden');
+}
+
+function showSupplierToast(msg, isError) {
+  const t = document.getElementById('supplier-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.background = isError ? '#7f1d1d' : '#14532d';
+  t.style.borderColor = isError ? '#ef4444' : '#22c55e';
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3500);
+}
+
+async function saveSupplier() {
+  const isEdit = document.getElementById('drawer-edit-mode').value === 'edit';
+  const scode = (document.getElementById('d-scode').value || '').trim().toUpperCase();
+  const name  = (document.getElementById('d-name').value || '').trim();
+  const email = (document.getElementById('d-email').value || '').trim();
+  const country = document.getElementById('d-country').value;
+  const vat = (document.getElementById('d-vat').value || '').trim();
+  const vatCode = document.getElementById('d-vatcode').value;
+  const isActive = document.getElementById('d-status').value === 'true';
+  let valid = true;
+  if (!isEdit && !scode) { document.getElementById('d-scode-err').textContent='Supplier code is required'; document.getElementById('d-scode-err').classList.remove('hidden'); valid=false; } else { document.getElementById('d-scode-err').classList.add('hidden'); }
+  if (!name) { document.getElementById('d-name-err').textContent='Full name is required'; document.getElementById('d-name-err').classList.remove('hidden'); valid=false; } else { document.getElementById('d-name-err').classList.add('hidden'); }
+  if (!country) { alert('Country is required'); return; }
+  if (!vatCode) { alert('Default VAT Code is required'); return; }
+  if (!valid) return;
+  // If VAT code changed and warning not yet confirmed, show warning
+  const origCode = document.getElementById('drawer-original-vat-code').value;
+  if (isEdit && vatCode !== origCode && origCode && !document.getElementById('d-vatcode-warning').classList.contains('hidden') === false) {
+    document.getElementById('d-vatcode-warning').classList.remove('hidden');
+    return;
+  }
+  try {
+    if (isEdit) {
+      const id = document.getElementById('drawer-supplier-id').value;
+      await axios.patch(API + '/suppliers/' + id, { name, contact_email: email, country, vat_number: vat, default_vat_code: vatCode, is_active: isActive });
+      showSupplierToast('Supplier updated successfully', false);
+    } else {
+      const res = await axios.post(API + '/suppliers', { supplier_code: scode, name, contact_email: email, country, vat_number: vat, default_vat_code: vatCode });
+      showSupplierToast('Supplier ' + res.data.supplier_code + ' added successfully', false);
+    }
+    closeSupplierDrawer();
+    const newSuppliers = await axios.get(API + '/suppliers').then(r => r.data);
+    window._suppData.suppliers = newSuppliers;
+    document.getElementById('supp-content').innerHTML = renderSuppliersTable(newSuppliers);
+  } catch(err) {
+    const msg = err.response?.data?.message || err.response?.data?.error || 'Save failed';
+    if (err.response?.data?.error === 'DUPLICATE_CODE') {
+      document.getElementById('d-scode-err').textContent = msg;
+      document.getElementById('d-scode-err').classList.remove('hidden');
+    } else { showSupplierToast(msg, true); }
+  }
+}
+
+async function deactivateSupplier(id, code) {
+  document.getElementById('smenu-' + id)?.classList.add('hidden');
+  if (!confirm('Deactivate supplier ' + code + '? Status will be set to Inactive. No records will be deleted.')) return;
+  try {
+    await axios.patch(API + '/suppliers/' + id, { is_active: false });
+    showSupplierToast('Supplier ' + code + ' deactivated', false);
+    const s = await axios.get(API + '/suppliers').then(r => r.data);
+    window._suppData.suppliers = s;
+    document.getElementById('supp-content').innerHTML = renderSuppliersTable(s);
+  } catch(e) { showSupplierToast('Deactivation failed', true); }
+}
+
+async function reactivateSupplier(id, code) {
+  document.getElementById('smenu-' + id)?.classList.add('hidden');
+  try {
+    await axios.patch(API + '/suppliers/' + id, { is_active: true });
+    showSupplierToast('Supplier ' + code + ' reactivated', false);
+    const s = await axios.get(API + '/suppliers').then(r => r.data);
+    window._suppData.suppliers = s;
+    document.getElementById('supp-content').innerHTML = renderSuppliersTable(s);
+  } catch(e) { showSupplierToast('Reactivation failed', true); }
+}
+
 
 function showNewBatchModal() {
   openModal('Create Purchase Batch', \`
@@ -2047,6 +2392,172 @@ function showNewBatchModal() {
       </div>
     </div>
   \`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BULK GRADE/COLOUR OVERRIDE (Purchase Batch Detail — Manager role)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function openBulkOverrideModal(batchId, batchCode, batchVatCode) {
+  // Fetch devices in this batch
+  let batchDevices = [];
+  try {
+    const allDevices = await axios.get(API + '/devices').then(r => r.data);
+    batchDevices = allDevices.filter(d => d.purchase_batch_id === batchId);
+  } catch(e) { batchDevices = []; }
+
+  const GRADES = ['A+','A','B','C','D','Faulty'];
+  const COLOURS = ['Space Black','Deep Purple','Gold','Silver','Midnight','Starlight','Pink','Blue','Green','Red','White','Black','Obsidian','Titanium Black','Phantom Grey','Awesome White','Sierra Blue'];
+  const REASONS = [
+    { code:'GRADE_DISCREPANCY_QC', label:'Grade Discrepancy Found at QC' },
+    { code:'POST_REPAIR_UPGRADE', label:'Post-Repair Grade Upgrade' },
+    { code:'POST_REPAIR_DOWNGRADE', label:'Post-Repair Grade Downgrade' },
+    { code:'COLOUR_MISMATCH', label:'Colour Mismatch Identified' },
+    { code:'CUSTOMER_RETURN_CONDITION', label:'Customer Return — Condition Changed' },
+    { code:'OTHER', label:'Other (specify below)' },
+  ];
+  const isMarginBatch = batchVatCode && batchVatCode.includes('MARGIN');
+
+  openModal(\`Bulk Grade/Colour Correction — \${batchCode}\`, \`
+    <div class="space-y-4 text-sm">
+      \${isMarginBatch ? \`<div class="p-3 rounded-lg border text-xs" style="background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.4); color:#fbbf24">
+        <i class="fas fa-exclamation-triangle mr-1"></i><strong>Margin Scheme Batch:</strong> Grade changes on these devices may affect margin VAT calculations. Review pricing before listing.
+      </div>\` : ''}
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Field to Override *</label>
+          <select id="bulk-field" onchange="onBulkFieldChange()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+            <option value="">Select field...</option>
+            <option value="grade">Grade</option>
+            <option value="colour">Colour</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">New Value *</label>
+          <select id="bulk-new-value" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+            <option value="">Select field first...</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Reason *</label>
+          <select id="bulk-reason" onchange="onBulkReasonChange()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+            <option value="">Select reason...</option>
+            \${REASONS.map(r => \`<option value="\${r.code}">\${r.label}</option>\`).join('')}
+          </select>
+        </div>
+        <div id="bulk-notes-wrap" class="col-span-2 hidden">
+          <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Notes * (min 20 chars)</label>
+          <textarea id="bulk-notes" rows="2" placeholder="Describe the reason in detail..." class="w-full rounded-lg px-3 py-2 text-sm border resize-none" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"></textarea>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-2" style="color:var(--text-muted)">Select Devices to Apply Override *</label>
+        <div class="flex gap-2 mb-2">
+          <button onclick="bulkSelectAll(true)" class="text-xs text-blue-400 hover:underline">Select all</button>
+          <span style="color:var(--text-muted)">·</span>
+          <button onclick="bulkSelectAll(false)" class="text-xs text-blue-400 hover:underline">Deselect all</button>
+        </div>
+        <div class="overflow-y-auto max-h-48 rounded-lg border" style="border-color:var(--border)">
+          <table class="w-full text-xs">
+            <thead><tr style="background:var(--bg-sidebar)">
+              <th class="p-2 w-8"><input type="checkbox" id="bulk-check-all" onchange="bulkSelectAll(this.checked)"></th>
+              <th class="p-2 text-left" style="color:var(--text-muted)">IMEI</th>
+              <th class="p-2 text-left" style="color:var(--text-muted)">Model</th>
+              <th class="p-2 text-left" style="color:var(--text-muted)">Grade</th>
+              <th class="p-2 text-left" style="color:var(--text-muted)">Colour</th>
+            </tr></thead>
+            <tbody>
+              \${batchDevices.length ? batchDevices.map(d => \`
+                <tr class="border-b hover:opacity-80" style="border-color:var(--border)">
+                  <td class="p-2"><input type="checkbox" class="bulk-device-cb" value="\${d.device_id}" checked></td>
+                  <td class="p-2 font-mono text-blue-300">\${d.imei_primary}</td>
+                  <td class="p-2" style="color:var(--text-primary)">\${d.make} \${d.model}</td>
+                  <td class="p-2 font-bold \${d.grade==='A'||d.grade==='A+'?'text-emerald-400':d.grade==='B'?'text-blue-400':'text-amber-400'}">\${d.grade}</td>
+                  <td class="p-2" style="color:var(--text-secondary)">\${d.colour}</td>
+                </tr>
+              \`).join('') : \`<tr><td colspan="5" class="p-4 text-center text-xs" style="color:var(--text-muted)">No devices found for this batch in the current view</td></tr>\`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div id="bulk-err" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2"></div>
+      <div id="bulk-preview" class="hidden"></div>
+      <div class="flex gap-3">
+        <button onclick="closeModal()" class="flex-1 rounded-lg py-2.5 text-sm border hover:opacity-80" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button>
+        <button onclick="previewBulkOverride()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg py-2.5 text-sm font-semibold">
+          <i class="fas fa-eye mr-2"></i>Preview & Apply
+        </button>
+      </div>
+    </div>
+  \`);
+  // Store grades and colours for dynamic select
+  window._bulkGrades = GRADES;
+  window._bulkColours = COLOURS;
+}
+
+function onBulkFieldChange() {
+  const field = document.getElementById('bulk-field')?.value;
+  const sel = document.getElementById('bulk-new-value');
+  if (!sel) return;
+  const options = field === 'grade' ? (window._bulkGrades||[]) : field === 'colour' ? (window._bulkColours||[]) : [];
+  sel.innerHTML = '<option value="">Select value...</option>' + options.map(o => \`<option value="\${o}">\${o}</option>\`).join('');
+}
+
+function onBulkReasonChange() {
+  const reason = document.getElementById('bulk-reason')?.value;
+  const wrap = document.getElementById('bulk-notes-wrap');
+  if (wrap) { if (reason === 'OTHER') wrap.classList.remove('hidden'); else wrap.classList.add('hidden'); }
+}
+
+function bulkSelectAll(checked) {
+  document.querySelectorAll('.bulk-device-cb').forEach(cb => cb.checked = checked);
+  const all = document.getElementById('bulk-check-all');
+  if (all) all.checked = checked;
+}
+
+async function previewBulkOverride() {
+  const field = document.getElementById('bulk-field')?.value;
+  const newValue = document.getElementById('bulk-new-value')?.value;
+  const reasonCode = document.getElementById('bulk-reason')?.value;
+  const notes = document.getElementById('bulk-notes')?.value || '';
+  const errEl = document.getElementById('bulk-err');
+  const previewEl = document.getElementById('bulk-preview');
+  errEl.classList.add('hidden');
+  if (!field || !newValue || !reasonCode) { errEl.textContent = 'Please select field, value and reason'; errEl.classList.remove('hidden'); return; }
+  if (reasonCode === 'OTHER' && notes.length < 20) { errEl.textContent = 'Notes must be at least 20 characters'; errEl.classList.remove('hidden'); return; }
+  const selected = [...document.querySelectorAll('.bulk-device-cb:checked')].map(cb => cb.value);
+  if (!selected.length) { errEl.textContent = 'Please select at least one device'; errEl.classList.remove('hidden'); return; }
+  previewEl.innerHTML = \`<div class="p-3 rounded-lg border text-xs" style="background:rgba(245,158,11,0.08); border-color:rgba(245,158,11,0.4); color:#fbbf24">
+    <i class="fas fa-exclamation-triangle mr-1"></i>
+    You are about to override <strong>\${selected.length} device(s)</strong> — 
+    setting \${field} to <strong>\${newValue}</strong>.
+    Reason: \${reasonCode.replace(/_/g,' ')}.
+    <strong>This will create \${selected.length} individual audit event(s) and cannot be undone.</strong>
+    <div class="flex gap-2 mt-2">
+      <button onclick="submitBulkOverride(\${JSON.stringify(selected)},'\${field}','\${newValue}','\${reasonCode}',\${JSON.stringify(notes)})"
+        class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-semibold">
+        <i class="fas fa-check mr-1"></i>Confirm (\${selected.length} devices)
+      </button>
+      <button onclick="document.getElementById('bulk-preview').innerHTML=''" class="text-xs px-3 py-1 rounded border" style="border-color:rgba(245,158,11,0.4); color:#fbbf24">Edit</button>
+    </div>
+  </div>\`;
+  previewEl.classList.remove('hidden');
+}
+
+async function submitBulkOverride(deviceIds, fieldChanged, newValue, reasonCode, notes) {
+  try {
+    const res = await axios.post(API + '/devices/batch-override', { device_ids: deviceIds, field_changed: fieldChanged, new_value: newValue, reason_code: reasonCode, notes: notes || '' });
+    closeModal();
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-medium text-white border flex items-center gap-2';
+    toast.style.cssText = 'background:#92400e; border-color:#f59e0b; min-width:320px';
+    toast.innerHTML = \`<i class="fas fa-layer-group text-amber-400"></i> Bulk Override applied: \${res.data.overrides_created} device(s) updated. Audit events created.\`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+  } catch(err) {
+    const errEl = document.getElementById('bulk-err');
+    if (errEl) { errEl.textContent = err.response?.data?.error || 'Bulk override failed'; errEl.classList.remove('hidden'); }
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2186,10 +2697,23 @@ function showNewTicketModal() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function renderAdmin() {
-  document.getElementById('page-content').innerHTML = \`
-    <div class="fade-in space-y-6">
+  const el = document.getElementById('page-content');
+  if (!el) return;
+  el.innerHTML = \`<div class="fade-in space-y-6">
+    <div class="border-b" style="border-color:var(--border)">
+      <div class="flex gap-6">
+        <button id="atab-settings" onclick="showAdminTab('settings')" class="pb-3 text-sm font-medium text-blue-400 tab-active">Settings</button>
+        <button id="atab-catalogue" onclick="showAdminTab('catalogue')" class="pb-3 text-sm font-medium hover:text-white" style="color:var(--text-secondary)"><i class="fas fa-tags mr-1.5 text-xs"></i>Device Catalogue</button>
+      </div>
+    </div>
+    <div id="admin-tab-content"></div>
+  </div>\`;
+  showAdminTab('settings');
+}
+
+function renderAdminSettingsHTML() {
+  return \`<div id="admin-settings-panel" class="space-y-6">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <!-- Company Settings -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-building text-blue-400"></i> Company Settings</h3>
           <div class="space-y-3 text-sm">
@@ -2202,108 +2726,440 @@ function renderAdmin() {
             <div class="flex justify-between py-2"><span class="text-gray-400">Subscription Plan</span><span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">Professional</span></div>
           </div>
         </div>
-
-        <!-- Data Retention Policy -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-archive text-amber-400"></i> Data Retention Policy (HMRC)</h3>
           <div class="space-y-3 text-sm">
-            \${[
-              ['Operational Data', '6 years minimum', 'bg-blue-500'],
-              ['OPR Documents', '4 years — NON-DELETABLE', 'bg-red-500'],
-              ['VAT Records', '6 years — HMRC mandatory', 'bg-red-500'],
-              ['System Audit Logs', '2 years minimum', 'bg-amber-500'],
-            ].map(([label, policy, color]) => \`
-              <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                <span class="text-gray-300">\${label}</span>
-                <span class="text-xs font-medium \${color === 'bg-red-500' ? 'text-red-400' : color === 'bg-amber-500' ? 'text-amber-400' : 'text-blue-400'}">\${policy}</span>
-              </div>
-            \`).join('')}
+            \${[['Operational Data','6 years minimum','blue'],['OPR Documents','4 years — NON-DELETABLE','red'],['VAT Records','6 years — HMRC mandatory','red'],['System Audit Logs','2 years minimum','amber']].map(([l,p,c])=>\`<div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg"><span class="text-gray-300">\${l}</span><span class="text-xs font-medium text-\${c}-400">\${p}</span></div>\`).join('')}
           </div>
         </div>
-
-        <!-- System Controls -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-shield-alt text-emerald-400"></i> Non-Negotiable System Controls</h3>
           <div class="space-y-2">
-            \${[
-              ['Intake QC Mandatory', 'No device enters AVAILABLE without completed QC', true],
-              ['Lock Check Enforcement', 'Lock blocks all sale paths until LOCK_CLEARED event', true],
-              ['IMEI Matching Required', 'Returns must match sold IMEI exactly', true],
-              ['Duplicate IMEI Prevention', 'Global block across all tenants', true],
-              ['VAT Tax Point Rule', 'Always sale date — never advance/settlement', true],
-              ['Reverse Charge Atomicity', 'Both Box 1 and Box 4 created simultaneously', true],
-              ['Export VAT Override', 'Non-UK addresses force 0EXPORT_SALES', true],
-              ['Audit Trail Mandatory', 'All overrides require user, reason, timestamp', true],
-            ].map(([ctrl, desc, active]) => \`
-              <div class="flex items-start gap-3 p-3 bg-gray-800 rounded-lg">
-                <i class="fas fa-\${active ? 'check-circle text-emerald-400' : 'times-circle text-red-400'} mt-0.5 text-sm flex-shrink-0"></i>
-                <div>
-                  <div class="text-sm font-medium text-white">\${ctrl}</div>
-                  <div class="text-xs text-gray-400">\${desc}</div>
-                </div>
-              </div>
-            \`).join('')}
+            \${[['Intake QC Mandatory','No device enters AVAILABLE without completed QC'],['Lock Check Enforcement','Lock blocks all sale paths until LOCK_CLEARED event'],['IMEI Matching Required','Returns must match sold IMEI exactly'],['Duplicate IMEI Prevention','Global block across all tenants'],['VAT Tax Point Rule','Always sale date — never advance/settlement'],['Reverse Charge Atomicity','Both Box 1 and Box 4 created simultaneously'],['Export VAT Override','Non-UK addresses force 0EXPORT_SALES'],['Audit Trail Mandatory','All overrides require user, reason, timestamp']].map(([ctrl,desc])=>\`<div class="flex items-start gap-3 p-3 bg-gray-800 rounded-lg"><i class="fas fa-check-circle text-emerald-400 mt-0.5 text-sm flex-shrink-0"></i><div><div class="text-sm font-medium text-white">\${ctrl}</div><div class="text-xs text-gray-400">\${desc}</div></div></div>\`).join('')}
           </div>
         </div>
-
-        <!-- Marketplace Integrations -->
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-plug text-purple-400"></i> Marketplace Integrations</h3>
           <div class="space-y-3">
-            \${[
-              ['Amazon SP-API', 'Order sync, settlements, refund alerts', 'connected'],
-              ['Back Market API', 'Orders, financial statements, cases', 'connected'],
-              ['eBay API', 'Order sync, settlement import', 'pending'],
-              ['Shopify API', 'Order sync', 'not_configured'],
-              ['HMRC MTD API', 'Direct VAT submission (Phase 4)', 'roadmap'],
-              ['Xero Integration', 'Accounting export with VAT (Phase 4)', 'roadmap'],
-            ].map(([name, desc, status]) => \`
-              <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                <div>
-                  <div class="text-sm font-medium text-white">\${name}</div>
-                  <div class="text-xs text-gray-400">\${desc}</div>
-                </div>
-                <span class="text-xs px-2 py-1 rounded-full \${
-                  status === 'connected' ? 'bg-emerald-500/20 text-emerald-400' :
-                  status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                  status === 'roadmap' ? 'bg-blue-500/20 text-blue-400' :
-                  'bg-gray-500/20 text-gray-400'
-                }">\${status === 'connected' ? '✓ Connected' : status === 'pending' ? '⏳ Pending' : status === 'roadmap' ? '🗺 Roadmap' : '⚙ Configure'}</span>
-              </div>
-            \`).join('')}
+            \${[['Amazon SP-API','Order sync, settlements','connected'],['Back Market API','Orders, financials, cases','connected'],['eBay API','Order sync, settlement import','pending'],['Shopify API','Order sync','not_configured'],['HMRC MTD API','Direct VAT submission (Phase 4)','roadmap'],['Xero Integration','Accounting export with VAT (Phase 4)','roadmap']].map(([n,d,s])=>\`<div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg"><div><div class="text-sm font-medium text-white">\${n}</div><div class="text-xs text-gray-400">\${d}</div></div><span class="text-xs px-2 py-1 rounded-full \${s==='connected'?'bg-emerald-500/20 text-emerald-400':s==='pending'?'bg-amber-500/20 text-amber-400':s==='roadmap'?'bg-blue-500/20 text-blue-400':'bg-gray-500/20 text-gray-400'}">\${s==='connected'?'✓ Connected':s==='pending'?'⏳ Pending':s==='roadmap'?'🗺 Roadmap':'⚙ Configure'}</span></div>\`).join('')}
           </div>
         </div>
       </div>
-
-      <!-- Build Phase Roadmap -->
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <h3 class="font-semibold text-white mb-4 flex items-center gap-2"><i class="fas fa-road text-cyan-400"></i> Build Phase Roadmap</h3>
         <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
-          \${[
-            ['Phase 1', 'Months 1-3', 'Core Foundation', 'Multi-tenant, VAT engine, Purchase batches, Intake QC, OPR engine, Order sync, Basic RMA', 'IN PROGRESS', 'bg-blue-600'],
-            ['Phase 2', 'Months 4-5', 'Risk & Recovery', 'INR workflows, AI communications, Fintech reconciliation, Loss tracking', 'PLANNED', 'bg-gray-600'],
-            ['Phase 3', 'Months 6-7', 'Operations Expansion', 'Inventory audits, Repair workflows, Supplier analytics, Additional marketplaces', 'PLANNED', 'bg-gray-600'],
-            ['Phase 4', 'Months 8-9', 'Intelligence & SaaS', 'Profitability engine, Dashboards, SaaS tenant management, HMRC MTD', 'PLANNED', 'bg-gray-600'],
-          ].map(([phase, timing, title, desc, status, color]) => \`
-            <div class="bg-gray-800 rounded-xl p-4">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold \${color === 'bg-blue-600' ? 'bg-blue-600' : 'bg-gray-600'} text-white px-2 py-0.5 rounded">\${phase}</span>
-                <span class="text-xs text-gray-500">\${timing}</span>
-              </div>
-              <div class="font-semibold text-white text-sm mb-1">\${title}</div>
-              <div class="text-xs text-gray-400">\${desc}</div>
-              <div class="mt-3">
-                <span class="text-xs px-2 py-0.5 rounded-full \${status === 'IN PROGRESS' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}">\${status}</span>
-              </div>
-            </div>
-          \`).join('')}
+          \${[['Phase 1','Months 1-3','Core Foundation','Multi-tenant, VAT engine, Purchase batches, Intake QC, OPR engine','IN PROGRESS'],['Phase 2','Months 4-5','Risk & Recovery','INR workflows, AI communications, Fintech reconciliation, Loss tracking','PLANNED'],['Phase 3','Months 6-7','Operations Expansion','Inventory audits, Repair workflows, Supplier analytics, Marketplaces','PLANNED'],['Phase 4','Months 8-9','Intelligence & SaaS','Profitability engine, SaaS tenant management, HMRC MTD','PLANNED']].map(([ph,t,title,desc,st])=>\`<div class="bg-gray-800 rounded-xl p-4"><div class="flex items-center justify-between mb-2"><span class="text-xs font-bold \${st==='IN PROGRESS'?'bg-blue-600':'bg-gray-600'} text-white px-2 py-0.5 rounded">\${ph}</span><span class="text-xs text-gray-500">\${t}</span></div><div class="font-semibold text-white text-sm mb-1">\${title}</div><div class="text-xs text-gray-400">\${desc}</div><div class="mt-3"><span class="text-xs px-2 py-0.5 rounded-full \${st==='IN PROGRESS'?'bg-blue-500/20 text-blue-400':'bg-gray-500/20 text-gray-400'}">\${st}</span></div></div>\`).join('')}
         </div>
       </div>
-    </div>
-  \`;
+    </div>\`;
+}
+
+function showAdminTab(tab) {
+  document.querySelectorAll('[id^="atab-"]').forEach(el => {
+    el.classList.remove('text-blue-400','tab-active');
+    el.style.color = 'var(--text-secondary)';
+  });
+  const active = document.getElementById('atab-' + tab);
+  if (active) { active.classList.add('text-blue-400','tab-active'); active.style.color = ''; }
+  const wrap = document.getElementById('admin-tab-content');
+  if (!wrap) return;
+  if (tab === 'catalogue') {
+    wrap.innerHTML = '<div id="admin-catalogue-panel"></div>';
+    renderDeviceVariantsInto('admin-catalogue-panel');
+  } else {
+    wrap.innerHTML = renderAdminSettingsHTML();
+  }
+}
+
+async function renderDeviceVariantsInto(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '<div class="py-8 text-center text-sm" style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin mr-2"></i>Loading catalogue...</div>';
+  try {
+    const [variants, makes] = await Promise.all([
+      axios.get(API + '/device-variants').then(r => r.data),
+      axios.get(API + '/device-variants/makes').then(r => r.data),
+    ]);
+    window._variantsData = variants;
+    window._variantMakes = makes;
+    const CSV_TEMPLATE = 'Make,Model,Storage,Colour,Grade\\nApple,iPhone 11,64GB,Black,A\\nApple,iPhone 12,128GB,Blue,A\\nSamsung,Galaxy S21,256GB,Phantom Grey,A';
+    const csvBlob = new Blob([CSV_TEMPLATE], {type:'text/csv'});
+    const csvUrl = URL.createObjectURL(csvBlob);
+    container.innerHTML = \`<div class="space-y-5">
+      <div class="flex flex-wrap items-center gap-3 justify-between">
+        <div class="flex items-center gap-3">
+          <input id="var-search" type="text" placeholder="Search SKU, make, model..." oninput="filterVariants()"
+            class="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+          <span id="var-count" class="text-xs" style="color:var(--text-muted)">\${variants.length} variants</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="\${csvUrl}" download="device_variants_template.csv"
+            class="px-3 py-2 rounded-lg text-xs font-medium border hover:opacity-80 flex items-center gap-1.5"
+            style="border-color:var(--border-light); color:var(--text-secondary)">
+            <i class="fas fa-download text-xs"></i> CSV Template
+          </a>
+          <label class="px-3 py-2 rounded-lg text-xs font-medium border hover:opacity-80 cursor-pointer flex items-center gap-1.5"
+            style="background:var(--bg-sidebar-h); border-color:var(--border-light); color:var(--text-primary)">
+            <i class="fas fa-upload text-xs text-blue-400"></i> Upload Variants
+            <input type="file" accept=".csv" class="hidden" onchange="handleVariantCsvUpload(event)">
+          </label>
+          <button onclick="openAddVariantModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Variant
+          </button>
+        </div>
+      </div>
+      <div id="csv-import-panel" class="hidden rounded-xl border p-5 space-y-4" style="border-color:var(--border); background:var(--bg-card)">
+        <div class="flex items-center justify-between">
+          <h4 class="font-semibold text-sm" style="color:var(--text-primary)"><i class="fas fa-table mr-2 text-blue-400"></i>CSV Import Preview</h4>
+          <button onclick="document.getElementById('csv-import-panel').classList.add('hidden')" class="text-xs" style="color:var(--text-muted)"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="csv-preview-stats" class="flex gap-4 text-xs flex-wrap"></div>
+        <div id="csv-preview-table" class="overflow-x-auto max-h-64 overflow-y-auto"></div>
+        <div class="flex gap-3">
+          <button onclick="confirmCsvImport()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium"><i class="fas fa-check mr-2"></i>Confirm Import</button>
+          <button onclick="document.getElementById('csv-import-panel').classList.add('hidden')" class="px-4 py-2 rounded-lg text-sm border hover:opacity-80" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button>
+        </div>
+      </div>
+      <div id="variants-table-wrap" class="overflow-x-auto rounded-xl border" style="border-color:var(--border)">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b" style="border-color:var(--border); background:var(--bg-sidebar)">
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80" style="color:var(--text-muted)" onclick="sortVariants('sku_code')">SKU Code <i class="fas fa-sort ml-1 text-xs opacity-50"></i></th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80" style="color:var(--text-muted)" onclick="sortVariants('make')">Make <i class="fas fa-sort ml-1 text-xs opacity-50"></i></th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80" style="color:var(--text-muted)" onclick="sortVariants('model')">Model <i class="fas fa-sort ml-1 text-xs opacity-50"></i></th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Storage</th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Colour</th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80" style="color:var(--text-muted)" onclick="sortVariants('grade')">Grade <i class="fas fa-sort ml-1 text-xs opacity-50"></i></th>
+              <th class="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted)">Status</th>
+            </tr>
+          </thead>
+          <tbody id="variants-tbody">
+            \${variants.map(v => variantRow(v)).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div id="add-variant-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6)">
+        <div class="rounded-xl shadow-2xl border w-full max-w-md mx-4" style="background:var(--bg-card); border-color:var(--border-light)">
+          <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color:var(--border)">
+            <h3 class="font-semibold" style="color:var(--text-primary)">Add Device Variant</h3>
+            <button onclick="closeAddVariantModal()" class="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-80" style="background:var(--bg-sidebar-h); color:var(--text-muted)"><i class="fas fa-times text-xs"></i></button>
+          </div>
+          <div class="p-5 space-y-4 text-sm">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Make *</label>
+                <select id="av-make" onchange="onAvMakeChange();updateAvSkuPreview();" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+                  <option value="">Select...</option>
+                  \${makes.map(m => \`<option value="\${m}">\${m}</option>\`).join('')}
+                  <option value="__custom__">+ Custom make...</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Model *</label>
+                <select id="av-model" onchange="updateAvSkuPreview()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+                  <option value="">Select make first</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Storage *</label>
+                <select id="av-storage" onchange="updateAvSkuPreview()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+                  <option value="">Select...</option>
+                  \${['16GB','32GB','64GB','128GB','256GB','512GB','1TB'].map(s => \`<option value="\${s}">\${s}</option>\`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Colour *</label>
+                <input id="av-colour" type="text" placeholder="e.g. Space Black" oninput="updateAvSkuPreview()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Grade *</label>
+                <select id="av-grade" onchange="updateAvSkuPreview()" class="w-full rounded-lg px-3 py-2 text-sm border" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+                  <option value="">Select...</option>
+                  \${['A+','A','B','C','D','Faulty'].map(g => \`<option value="\${g}">\${g}</option>\`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Preview SKU</label>
+                <div id="av-sku-preview" class="rounded-lg px-3 py-2 text-xs font-mono text-blue-400 border" style="background:var(--bg-input); border-color:var(--border-light); min-height:36px">—</div>
+              </div>
+            </div>
+            <div id="av-err" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2"></div>
+          </div>
+          <div class="flex gap-3 px-5 pb-5">
+            <button onclick="closeAddVariantModal()" class="flex-1 rounded-lg py-2.5 text-sm border hover:opacity-80" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button>
+            <button onclick="submitAddVariant()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"><i class="fas fa-plus mr-2"></i>Add Variant</button>
+          </div>
+        </div>
+      </div>
+    </div>\`;
+  } catch(err) {
+    container.innerHTML = '<div class="text-red-400 text-sm p-4">Failed to load catalogue: ' + err.message + '</div>';
+  }
+}
+
+function sortVariants(field) {
+  if (!window._variantsData) return;
+  const asc = window._variantsSortField !== field;
+  window._variantsSortField = asc ? field : null;
+  const sorted = [...window._variantsData].sort((a,b) => asc ? String(a[field]||'').localeCompare(String(b[field]||'')) : 0);
+  const tbody = document.getElementById('variants-tbody');
+  if (tbody) tbody.innerHTML = sorted.map(v => variantRow(v)).join('');
+}
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEVICE VARIANTS CATALOGUE (Admin → Catalogue tab)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function variantRow(v) {
+  return \`<tr class="border-b hover:opacity-80" style="border-color:var(--border)">
+    <td class="py-3 px-4"><span class="font-mono text-xs text-blue-400 font-bold">\${v.sku_code}</span></td>
+    <td class="py-3 px-4" style="color:var(--text-primary)">\${v.make}</td>
+    <td class="py-3 px-4" style="color:var(--text-primary)">\${v.model}</td>
+    <td class="py-3 px-4"><span class="text-xs font-mono" style="color:var(--text-secondary)">\${v.storage}</span></td>
+    <td class="py-3 px-4" style="color:var(--text-secondary)">\${v.colour}</td>
+    <td class="py-3 px-4"><span class="font-bold text-sm \${v.grade === 'A' || v.grade === 'A+' ? 'text-emerald-400' : v.grade === 'B' ? 'text-blue-400' : v.grade === 'C' ? 'text-amber-400' : 'text-red-400'}">\${v.grade}</span></td>
+    <td class="py-3 px-4">\${v.is_active ? '<span class="text-xs text-emerald-400">Active</span>' : '<span class="text-xs text-gray-500">Inactive</span>'}</td>
+  </tr>\`;
+}
+
+function filterVariants() {
+  const q = (document.getElementById('var-search')?.value || '').toLowerCase();
+  const all = window._variantsData || [];
+  const filtered = q ? all.filter(v => (v.sku_code+v.make+v.model+v.colour+v.grade).toLowerCase().includes(q)) : all;
+  const tbody = document.getElementById('variants-tbody');
+  if (tbody) tbody.innerHTML = filtered.map(v => variantRow(v)).join('');
+  const cnt = document.getElementById('var-count');
+  if (cnt) cnt.textContent = filtered.length + ' variants';
+}
+
+function openAddVariantModal() {
+  document.getElementById('add-variant-modal').classList.remove('hidden');
+  document.getElementById('av-err').classList.add('hidden');
+}
+
+function closeAddVariantModal() {
+  document.getElementById('add-variant-modal').classList.add('hidden');
+}
+
+async function onAvMakeChange() {
+  const make = document.getElementById('av-make').value;
+  if (!make) return;
+  const models = await axios.get(API + '/device-variants/models?make=' + encodeURIComponent(make)).then(r => r.data);
+  const sel = document.getElementById('av-model');
+  sel.innerHTML = '<option value="">Select model...</option>' + models.map(m => \`<option value="\${m}">\${m}</option>\`).join('') + '<option value="__custom__">+ Custom model...</option>';
+}
+
+function updateAvSkuPreview() {
+  const make = document.getElementById('av-make').value;
+  const model = document.getElementById('av-model').value;
+  const storage = document.getElementById('av-storage').value;
+  const colour = document.getElementById('av-colour').value;
+  const grade = document.getElementById('av-grade').value;
+  const preview = document.getElementById('av-sku-preview');
+  if (make && model && storage && colour && grade) {
+    const makeM = {Apple:'APL',Samsung:'SAM',Google:'GOG',OnePlus:'OPL',Xiaomi:'XMI',Sony:'SNY'};
+    const ms = makeM[make] || make.substring(0,3).toUpperCase();
+    const mod = model.replace(/[^a-zA-Z0-9]/g,'').replace(/iPhone/i,'IP').replace(/Galaxy/i,'G').replace(/Pixel/i,'PX').substring(0,6).toUpperCase();
+    const st = storage.replace(/[^0-9a-zA-Z]/g,'').toUpperCase();
+    const cm = {Black:'BLK',White:'WHT',Blue:'BLU',Red:'RED',Pink:'PNK',Purple:'PRP',Gold:'GLD',Silver:'SLV',Midnight:'MID',Starlight:'STR',Obsidian:'OBS'};
+    const col = cm[colour] || colour.replace(/\s+/g,'').substring(0,3).toUpperCase();
+    preview.textContent = [ms,mod,st,col,grade.toUpperCase()].join('-');
+  } else {
+    preview.textContent = '—';
+  }
+}
+
+async function submitAddVariant() {
+  const make = document.getElementById('av-make').value;
+  const model = document.getElementById('av-model').value;
+  const storage = document.getElementById('av-storage').value;
+  const colour = (document.getElementById('av-colour').value || '').trim();
+  const grade = document.getElementById('av-grade').value;
+  const errEl = document.getElementById('av-err');
+  if (!make || !model || !storage || !colour || !grade) {
+    errEl.textContent = 'All fields are required'; errEl.classList.remove('hidden'); return;
+  }
+  try {
+    const res = await axios.post(API + '/device-variants', { make, model, storage, colour, grade });
+    const newVariant = res.data.variant;
+    window._variantsData = window._variantsData || [];
+    window._variantsData.push(newVariant);
+    const tbody = document.getElementById('variants-tbody');
+    if (tbody) tbody.innerHTML += variantRow(newVariant);
+    const cnt = document.getElementById('var-count');
+    if (cnt) cnt.textContent = window._variantsData.length + ' variants';
+    closeAddVariantModal();
+  } catch(err) {
+    const msg = err.response?.data?.message || 'Failed to add variant';
+    errEl.textContent = msg; errEl.classList.remove('hidden');
+  }
+}
+
+function handleVariantCsvUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const lines = text.split('\\n').map(l => l.trim()).filter(l => l);
+    if (!lines.length) return;
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const rows = [];
+    const errors = [];
+    const existing = window._variantsData || [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim());
+      const row = { make: cols[0]||'', model: cols[1]||'', storage: cols[2]||'', colour: cols[3]||'', grade: cols[4]||'', _row: i+1, _errors: [] };
+      if (!row.make || !row.model || !row.storage || !row.colour || !row.grade) row._errors.push('Missing fields');
+      const dupInFile = rows.find(r => r.make===row.make && r.model===row.model && r.storage===row.storage && r.colour===row.colour && r.grade===row.grade);
+      if (dupInFile) row._errors.push('Duplicate in file');
+      const dupInDb = existing.find(v => v.make===row.make && v.model===row.model && v.storage===row.storage && v.colour===row.colour && v.grade===row.grade);
+      if (dupInDb) row._errors.push('Already in catalogue ('+dupInDb.sku_code+')');
+      rows.push(row);
+    }
+    window._csvImportRows = rows;
+    window._csvImportFilename = file.name;
+    const valid = rows.filter(r => r._errors.length === 0).length;
+    const invalid = rows.length - valid;
+    document.getElementById('csv-preview-stats').innerHTML = \`
+      <span class="px-2 py-1 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">\${valid} valid rows</span>
+      \${invalid > 0 ? \`<span class="px-2 py-1 rounded bg-red-900/30 text-red-400 border border-red-700/40">\${invalid} rows with errors</span>\` : ''}
+      <span class="px-2 py-1 rounded border" style="border-color:var(--border-light); color:var(--text-muted)">File: \${file.name}</span>\`;
+    document.getElementById('csv-preview-table').innerHTML = \`<table class="w-full text-xs">
+      <thead><tr style="background:var(--bg-sidebar)">
+        <th class="text-left p-2">Row</th><th class="text-left p-2">Make</th><th class="text-left p-2">Model</th>
+        <th class="text-left p-2">Storage</th><th class="text-left p-2">Colour</th><th class="text-left p-2">Grade</th><th class="text-left p-2">Status</th>
+      </tr></thead>
+      <tbody>\${rows.map(r => \`<tr style="background:\${r._errors.length ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.05)'}; border-bottom:1px solid var(--border)">
+        <td class="p-2 font-mono">\${r._row}</td>
+        <td class="p-2">\${r.make}</td><td class="p-2">\${r.model}</td>
+        <td class="p-2">\${r.storage}</td><td class="p-2">\${r.colour}</td><td class="p-2 font-bold">\${r.grade}</td>
+        <td class="p-2">\${r._errors.length ? '<span class="text-red-400">'+r._errors.join(', ')+'</span>' : '<span class="text-emerald-400">Valid</span>'}</td>
+      </tr>\`).join('')}</tbody></table>\`;
+    document.getElementById('csv-import-panel').classList.remove('hidden');
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+async function confirmCsvImport() {
+  const rows = (window._csvImportRows || []).filter(r => r._errors.length === 0);
+  if (!rows.length) { alert('No valid rows to import'); return; }
+  try {
+    const res = await axios.post(API + '/device-variants/import', {
+      rows: rows.map(r => ({ make: r.make, model: r.model, storage: r.storage, colour: r.colour, grade: r.grade })),
+      filename: window._csvImportFilename || 'upload.csv'
+    });
+    document.getElementById('csv-import-panel').classList.add('hidden');
+    // Refresh
+    const updated = await axios.get(API + '/device-variants').then(r => r.data);
+    window._variantsData = updated;
+    const tbody = document.getElementById('variants-tbody');
+    if (tbody) tbody.innerHTML = updated.map(v => variantRow(v)).join('');
+    const cnt = document.getElementById('var-count');
+    if (cnt) cnt.textContent = updated.length + ' variants';
+    alert('Imported ' + res.data.imported + ' variants. Skipped ' + res.data.skipped_duplicate + ' duplicates.');
+  } catch(err) {
+    alert('Import failed: ' + (err.response?.data?.error || err.message));
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// GRADE & COLOUR OVERRIDE (Device Detail)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderOverridePanel(deviceId, fieldChanged, currentValue, purchaseVatCode) {
+  const GRADES = ['A+','A','B','C','D','Faulty'];
+  const COLOURS = ['Space Black','Deep Purple','Gold','Silver','Midnight','Starlight','Pink','Blue','Green','Red','White','Black','Obsidian','Titanium Black','Titanium White','Phantom Grey','Awesome White','Sierra Blue'];
+  const REASONS = [
+    { code:'GRADE_DISCREPANCY_QC', label:'Grade Discrepancy Found at QC' },
+    { code:'POST_REPAIR_UPGRADE', label:'Post-Repair Grade Upgrade' },
+    { code:'POST_REPAIR_DOWNGRADE', label:'Post-Repair Grade Downgrade' },
+    { code:'COLOUR_MISMATCH', label:'Colour Mismatch Identified' },
+    { code:'CUSTOMER_RETURN_CONDITION', label:'Customer Return — Condition Changed' },
+    { code:'OTHER', label:'Other (specify below)' },
+  ];
+  const isMarginScheme = purchaseVatCode && (purchaseVatCode.includes('MARGIN') || purchaseVatCode.includes('0MARGIN'));
+  const marginWarning = (fieldChanged === 'grade' && isMarginScheme) ? \`
+    <div class="p-3 rounded-lg border text-xs mb-3" style="background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.4); color:#fbbf24">
+      <i class="fas fa-exclamation-triangle mr-1"></i>
+      <strong>Margin Scheme Notice:</strong> This device is under the Margin Scheme. A grade change may affect the expected sale price and margin VAT calculation. Ensure the landed cost and sale price are reviewed before listing.
+    </div>\` : '';
+  const options = fieldChanged === 'grade' ? GRADES : COLOURS;
+  return \`
+    <div id="override-panel-\${fieldChanged}" class="mt-3 p-4 rounded-xl border space-y-3" style="background:var(--bg-card-h); border-color:rgba(251,191,36,0.4)">
+      <div class="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+        <i class="fas fa-exclamation-triangle"></i> Attribute Override — \${fieldChanged.charAt(0).toUpperCase()+fieldChanged.slice(1)} Change
+      </div>
+      \${marginWarning}
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">New \${fieldChanged.charAt(0).toUpperCase()+fieldChanged.slice(1)} *</label>
+        <select id="ov-new-value-\${fieldChanged}" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-amber-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+          <option value="">Select...</option>
+          \${options.filter(o => o !== currentValue).map(o => \`<option value="\${o}">\${o}</option>\`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Reason *</label>
+        <select id="ov-reason-\${fieldChanged}" onchange="onOverrideReasonChange('\${fieldChanged}')" class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-amber-500" style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)">
+          <option value="">Select reason...</option>
+          \${REASONS.map(r => \`<option value="\${r.code}">\${r.label}</option>\`).join('')}
+        </select>
+      </div>
+      <div id="ov-notes-wrap-\${fieldChanged}" class="hidden">
+        <label class="block text-xs font-semibold mb-1" style="color:var(--text-muted)">Notes * <span class="font-normal">(min 20 characters)</span></label>
+        <textarea id="ov-notes-\${fieldChanged}" rows="3" placeholder="Describe the reason in detail..."
+          class="w-full rounded-lg px-3 py-2 text-sm border focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+          style="background:var(--bg-input); border-color:var(--border-light); color:var(--text-primary)"></textarea>
+      </div>
+      <div id="ov-err-\${fieldChanged}" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-2">
+        <button onclick="submitAttributeOverride('\${deviceId}','\${fieldChanged}')"
+          class="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg py-2 text-sm font-semibold">
+          <i class="fas fa-check mr-2"></i>Confirm Change
+        </button>
+        <button onclick="document.getElementById('override-panel-\${fieldChanged}').remove()"
+          class="px-4 py-2 rounded-lg text-sm border hover:opacity-80" style="border-color:var(--border-light); color:var(--text-secondary)">Cancel</button>
+      </div>
+    </div>\`;
+}
+
+function onOverrideReasonChange(field) {
+  const reason = document.getElementById('ov-reason-' + field)?.value;
+  const wrap = document.getElementById('ov-notes-wrap-' + field);
+  if (wrap) { if (reason === 'OTHER') wrap.classList.remove('hidden'); else wrap.classList.add('hidden'); }
+}
+
+async function submitAttributeOverride(deviceId, fieldChanged) {
+  const newValue = document.getElementById('ov-new-value-' + fieldChanged)?.value;
+  const reasonCode = document.getElementById('ov-reason-' + fieldChanged)?.value;
+  const notes = document.getElementById('ov-notes-' + fieldChanged)?.value || '';
+  const errEl = document.getElementById('ov-err-' + fieldChanged);
+  errEl.classList.add('hidden');
+  if (!newValue) { errEl.textContent = 'Please select a new value'; errEl.classList.remove('hidden'); return; }
+  if (!reasonCode) { errEl.textContent = 'Please select a reason'; errEl.classList.remove('hidden'); return; }
+  if (reasonCode === 'OTHER' && notes.length < 20) { errEl.textContent = 'Notes must be at least 20 characters when reason is "Other"'; errEl.classList.remove('hidden'); return; }
+  try {
+    await axios.post(API + '/devices/' + deviceId + '/override', { field_changed: fieldChanged, new_value: newValue, reason_code: reasonCode, notes });
+    document.getElementById('override-panel-' + fieldChanged)?.remove();
+    // Update displayed value
+    const displayEl = document.getElementById('device-' + fieldChanged + '-display');
+    if (displayEl) displayEl.textContent = newValue;
+    // Show amber timeline event toast
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-medium text-white border flex items-center gap-2';
+    toast.style.cssText = 'background:#92400e; border-color:#f59e0b; min-width:300px';
+    toast.innerHTML = '<i class="fas fa-flag text-amber-400"></i> ATTRIBUTE OVERRIDE recorded. Audit event created.';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  } catch(err) {
+    const msg = err.response?.data?.error || 'Override failed';
+    errEl.textContent = msg; errEl.classList.remove('hidden');
+  }
+}
+
 // PAGE: COURIER & INR INVESTIGATIONS
 // ══════════════════════════════════════════════════════════════════════════════
 
