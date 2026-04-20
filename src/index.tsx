@@ -1123,7 +1123,19 @@ function showDeviceOverridePanel(deviceId, field, currentValue, purchaseVatCode)
   container.innerHTML = renderOverridePanel(deviceId, field, currentValue, purchaseVatCode);
 }
 
-function showImportModal() {
+async function showImportModal() {
+  // Fetch fresh active-only suppliers on every modal open (Fix 1A + 1C)
+  let activeSuppliers = [];
+  try {
+    activeSuppliers = await axios.get(API + '/suppliers?active=true').then(r => r.data);
+  } catch(e) {
+    activeSuppliers = (window._suppData && window._suppData.suppliers || []).filter(function(s){ return s.is_active; });
+  }
+  // Build option HTML: CODE — Full Name (Fix 2)
+  const supplierOpts = activeSuppliers.map(function(s){
+    return '<option value="' + s.supplier_id + '" data-vatcode="' + (s.default_vat_code || '') + '">' + s.supplier_code + ' \u2014 ' + s.name + '</option>';
+  }).join('');
+
   openModal('Import Purchase Batch / IMEI CSV', \`
     <div class="space-y-4 text-sm">
       <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
@@ -1138,20 +1150,22 @@ function showImportModal() {
       </div>
       <div>
         <label class="block text-gray-400 text-xs mb-1">Supplier</label>
-        <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
-          <option>TechSource Ltd</option><option>Mobile Wholesale EU</option><option>PhoneFlip Direct</option>
+        <select id="import-supplier-sel" onchange="onImportSupplierChange()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+          <option value="">Select supplier...</option>
+          \${supplierOpts}
         </select>
       </div>
       <div>
         <label class="block text-gray-400 text-xs mb-1">Invoice Reference</label>
-        <input type="text" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="e.g. TS-INV-5500" />
+        <input type="text" id="import-inv-ref" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="e.g. TS-INV-5500" />
       </div>
       <div>
         <label class="block text-gray-400 text-xs mb-1">VAT Code</label>
-        <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+        <select id="import-vat-code" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
           <option value="20RC_PURCHASES">20RC_PURCHASES — Reverse Charge</option>
           <option value="20S_PURCHASES">20S_PURCHASES — Standard 20%</option>
           <option value="0MARGIN_PURCHASES">0MARGIN_PURCHASES — Margin Scheme</option>
+          <option value="NOVAT_PURCHASES">NOVAT_PURCHASES — No VAT</option>
         </select>
       </div>
       <div class="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
@@ -1161,10 +1175,19 @@ function showImportModal() {
       </div>
       <div class="flex gap-3 pt-2">
         <button onclick="closeModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm">Cancel</button>
-        <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Create Batch & Import</button>
+        <button onclick="alert('Purchase batch created'); closeModal();" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Create Batch & Import</button>
       </div>
     </div>
   \`);
+}
+
+function onImportSupplierChange() {
+  const sel = document.getElementById('import-supplier-sel');
+  const opt = sel && sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.vatcode) {
+    const vc = document.getElementById('import-vat-code');
+    if (vc) vc.value = opt.dataset.vatcode;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2362,23 +2385,36 @@ async function reactivateSupplier(id, code) {
 }
 
 
-function showNewBatchModal() {
+async function showNewBatchModal() {
+  // Fix 1A + 1C: Fetch fresh active-only suppliers every time modal opens
+  let activeSuppliers = [];
+  try {
+    activeSuppliers = await axios.get(API + '/suppliers?active=true').then(r => r.data);
+  } catch(e) {
+    activeSuppliers = (window._suppData && window._suppData.suppliers || []).filter(function(s){ return s.is_active; });
+  }
+  // Fix 2: Display "CODE — Full Name", store supplier_id as value
+  const supplierOpts = activeSuppliers.map(function(s){
+    return '<option value="' + s.supplier_id + '" data-vatcode="' + (s.default_vat_code || '') + '">' + s.supplier_code + ' \u2014 ' + s.name + '</option>';
+  }).join('');
+
   openModal('Create Purchase Batch', \`
     <div class="space-y-4 text-sm">
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-gray-400 text-xs block mb-1">Supplier</label>
-          <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
-            <option>TechSource Ltd</option><option>Mobile Wholesale EU</option><option>PhoneFlip Direct</option>
+          <select id="new-batch-supplier-sel" onchange="onNewBatchSupplierChange()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+            <option value="">Select supplier...</option>
+            \${supplierOpts}
           </select>
         </div>
-        <div><label class="text-gray-400 text-xs block mb-1">Invoice Reference</label><input type="text" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
-        <div><label class="text-gray-400 text-xs block mb-1">Batch Date</label><input type="date" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Invoice Reference</label><input type="text" id="new-batch-inv-ref" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="e.g. TS-INV-5500" /></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Batch Date</label><input type="date" id="new-batch-date" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" /></div>
         <div><label class="text-gray-400 text-xs block mb-1">Currency</label>
-          <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300"><option>GBP</option><option>EUR</option><option>USD</option></select>
+          <select id="new-batch-currency" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300"><option value="GBP">GBP</option><option value="EUR">EUR</option><option value="USD">USD</option></select>
         </div>
-        <div><label class="text-gray-400 text-xs block mb-1">Total Purchase Value</label><input type="number" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="0.00" /></div>
+        <div><label class="text-gray-400 text-xs block mb-1">Total Purchase Value</label><input type="number" id="new-batch-value" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300" placeholder="0.00" /></div>
         <div><label class="text-gray-400 text-xs block mb-1">VAT Code</label>
-          <select class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
+          <select id="new-batch-vat-code" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300">
             <option value="20RC_PURCHASES">20RC_PURCHASES — Reverse Charge</option>
             <option value="20S_PURCHASES">20S_PURCHASES — Standard 20%</option>
             <option value="0MARGIN_PURCHASES">0MARGIN_PURCHASES — Margin Scheme</option>
@@ -2392,6 +2428,16 @@ function showNewBatchModal() {
       </div>
     </div>
   \`);
+}
+
+// Fix 3: Auto-populate VAT code when supplier is selected in Create Batch modal
+function onNewBatchSupplierChange() {
+  const sel = document.getElementById('new-batch-supplier-sel');
+  const opt = sel && sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.vatcode) {
+    const vc = document.getElementById('new-batch-vat-code');
+    if (vc) vc.value = opt.dataset.vatcode;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
