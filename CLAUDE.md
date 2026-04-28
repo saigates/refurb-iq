@@ -35,6 +35,64 @@ public/static/       ← Static assets (CSS, icons)
 
 ---
 
+## `src/index.tsx` Section Map
+
+The entire file is a single Hono `c.html(...)` template literal returned by
+`getIndexHTML()` (line 22 → 5692). To navigate, grep for landmark banners:
+`grep -n '═══\|PAGE:' src/index.tsx`. Each page renderer is preceded by a
+`// PAGE: <NAME>` banner comment — these are intentional and must be preserved.
+
+**Top-level block ranges:**
+
+| Block | Lines |
+|---|---|
+| Hono entry + `getIndexHTML()` opener | 1–22 |
+| HTML Shell (head + Tailwind/FA/Chart.js + `<style>`) | 23–149 |
+| Layout (sidebar, topbar, modal scaffold) | 150–384 |
+| `<script>` open + frontend JS utilities (`fmt`, `statusBadge`, `table`, `statCard`, badges) | 386–520 |
+| Navigation (`navigateTo`) + Modal helpers (`openModal`/`closeModal`) | 522–606 |
+| Page Renderers (all 21 pages) | 608–5606 |
+| UI Chrome (`toggleSidebar`, `applyTheme`, `toggleTheme`, `initUI`) | 5608–5677 |
+| `DOMContentLoaded` + modal overlay listener + `</script></body></html>` | 5680–5692 |
+
+**Page renderer table:**
+
+| Page | Render Function | Line Range | Key sub-functions |
+|---|---|---|---|
+| Dashboard | `renderDashboard` | 608–940 | `renderDeviceChart`, `renderMktChart`, `renderVatChart`, `renderRecentOrders`, `renderOPRTracker` |
+| Inventory | `renderInventory` | 941–987 | `renderDevicesTable`, `filterDevices`, `viewDevice`, `showImportModal`, `parseImportCsvFile`, `submitImportBatch` |
+| QC | `renderQC` | 1491–1656 | `renderQCPending`, `showQCTab`, `openQCForm` |
+| OPR | `renderOPR` | 1657–1853 | `renderOPRCard`, `showOPRCalculator`, `calcOPR`, `viewOPRDocs`, `showNewOPRModal` |
+| Orders | `renderOrders` | 1854–2005 | `renderOrdersTable`, `filterOrders`, `viewOrder`, `showDRCInfo` |
+| VAT Engine | `renderVAT` | 2006–2261 | `renderVatReturn`, `renderVatBox`, `showVatTab`, `runVatCalc`, `runDRCEval` |
+| Fintech | `renderFintech` | 2262–2338 | `calcFintech` |
+| Suppliers & Batches | `renderSuppliers` | 2339–2740 | `renderBatchesTable`, `renderSuppliersTable`, `openSupplierDrawer`, `saveSupplier`, `deactivateSupplier`, `showNewBatchModal` |
+| Bulk Override | `openBulkOverrideModal` | 2741–2906 | `previewBulkOverride`, `submitBulkOverride`, `bulkSelectAll` |
+| Support | `renderSupport` | 2907–3038 | `renderTicketsTable`, `filterTickets`, `viewTicket`, `showNewTicketModal` |
+| Admin & Settings | `renderAdmin` | 3039–3252 | `renderAdminSettingsHTML`, `showAdminTab`, `renderDeviceVariantsInto`, `sortVariants` |
+| Variants Catalogue | (`renderDeviceVariantsInto`) | 3255–3412 | `variantRow`, `filterVariants`, `openAddVariantModal`, `submitAddVariant`, `handleVariantCsvUpload`, `confirmCsvImport` |
+| Device Override Panel | `renderOverridePanel` | 3413–3505 | `onOverrideReasonChange`, `submitAttributeOverride` |
+| Courier & INR | `renderCourier` | 3507–3752 | `invStatusBadge`, `eventTypeBadge`, `renderInvestigationsTable`, `filterInvestigations`, `viewInvestigation`, `showNewInvestigationModal` |
+| Returns & RMA | `renderRMA` | 3753–3950 | `rmaStatusBadge`, `renderRMATable`, `showRMATab`, `viewRMA` |
+| Profitability & P&L | `renderProfitability` | 3951–4166 | `renderMakeChart`, `renderPnLTable`, `filterPnL` |
+| Repairs | `renderRepairs` | 4167–4440 | `repairStatusBadge`, `repairOutcomeBadge`, `renderRepairCards`, `filterRepairs`, `showRepairDetail` |
+| Supplier Analytics | `renderSupplierAnalytics` | 4441–4662 | `renderSupplierChart`, `showSupplierDetail` |
+| HMRC MTD Returns | `renderMTD` | 4663–4827 | `submitMTDReturn` |
+| Audit Log | `renderAuditLog` | 4828–4933 | `renderAuditTable`, `filterAuditLog` |
+| IMEI Scanner | `renderScanner` | 4934–5209 | `scanLookup`, `showIntakeForm`, `showManualIntake`, `cancelIntake`, `submitIntake` |
+| Marketplace Hub | `renderMarketplace` | 5210–5398 | `syncMarketplace`, `reconnectMarketplace`, `openMktDetail` |
+| Tenant Management | `renderTenants` | 5399–5606 | `renderTenantRows`, `filterTenants`, `openTenantDetail`, `suspendTenant`, `reactivateTenant` |
+
+**Quick grep recipes:**
+```bash
+grep -n '═══\|PAGE:' src/index.tsx              # all banners + page markers
+grep -n '^function \|^async function ' src/index.tsx  # every top-level fn
+grep -n 'window\._' src/index.tsx               # all global state usage
+grep -n '// Fix ' src/index.tsx                 # change-history landmarks
+```
+
+---
+
 ## Tech Stack
 
 **Runtime:** Cloudflare Workers (edge) via Wrangler v3  
@@ -69,18 +127,15 @@ to EOF). **Any JS code embedded in it is subject to these escaping rules:**
 Always use `new RegExp('pattern', 'flags')` constructor instead.**
 
 ### 2. State Management via `window._*` Globals
-All page-level state lives on `window`. Key globals:
-
-| Global | Contents |
-|---|---|
-| `window._suppData` | `{ suppliers: [], batches: [] }` — loaded by `renderSuppliers()` |
-| `window._importCsvRows` | Parsed IMEI CSV rows pending import |
-| `window._csvImportRows` | Parsed device-variant CSV rows pending import |
-| `window._variantsData` | Device variants catalogue array |
-| `window._allDevices` | Full device list from last fetch |
-
-After any API mutation, **refresh the relevant `window._*` global AND
-re-render the corresponding DOM element** — there is no reactive framework.
+All page-level state lives on `window._*` globals. Convention: each
+`render<Page>` function caches its primary fetched data on a `window._*`
+global for subsequent filter/sort/refresh operations. Common patterns:
+`_allFoo` for full list arrays, `_fooData` for nested
+`{ foo: [], bar: [] }` structures, `_<page>Current<Thing>` for the
+currently-selected entity. After any API mutation, refresh the relevant
+`window._*` global AND re-render the corresponding DOM element — there
+is no reactive framework. To find all globals in use:
+`grep -n 'window\._' src/index.tsx`.
 
 ### 3. Supplier Dropdown Pattern
 Both `showImportModal()` and `showNewBatchModal()` are `async` — they call
@@ -113,6 +168,18 @@ node --check /tmp/app.js && echo "SYNTAX OK"   # must print SYNTAX OK
 
 ---
 
+## Stubs & Placeholders
+
+Many action buttons in `src/index.tsx` currently fire `alert(...)`
+placeholders rather than real backend calls (e.g. 'Quote approved',
+'Manager approval recorded', 'Refund issued', 'Police report generated').
+Do NOT assume any workflow is implemented end-to-end. Before adding logic
+that depends on a button's behaviour, grep `src/routes/api.ts` to verify
+the corresponding endpoint exists. If a feature appears to work in the UI
+but no matching endpoint exists, it is a stub awaiting implementation.
+
+---
+
 ## Coding Conventions
 
 - **Indentation:** 2 spaces everywhere
@@ -136,19 +203,11 @@ Port is always 3000. Kill conflicts: `fuser -k 3000/tcp 2>/dev/null || true`
 
 ---
 
-## Key API Endpoints (summary)
-```
-GET    /api/suppliers?active=true         → active supplier list
-POST   /api/suppliers                     → create supplier
-PATCH  /api/suppliers/:id                 → update / deactivate supplier
-GET    /api/purchase-batches              → all batches
-POST   /api/purchase-batches              → create batch
-POST   /api/purchase-batches/:id/imei-import → bulk IMEI ingest
-GET    /api/devices                       → devices (filter: status, grade, make)
-POST   /api/device-variants/import        → bulk variant CSV ingest
-POST   /api/scanner/lookup               → IMEI lookup
-POST   /api/scanner/intake               → single device intake
-```
+## Key API Endpoints
+
+For the full endpoint list, grep `src/routes/api.ts` for
+`api\.(get|post|patch|delete)`. README.md has a curated subset for
+human reference.
 
 ---
 
@@ -170,6 +229,43 @@ POST   /api/scanner/intake               → single device intake
 - **`${expr}` without backslash** inside `index.tsx` — build silently broke UI.
 - **`onclick="fn('value')"` with single quotes** inside template literal HTML —
   use `data-*` attributes or encode with `JSON.stringify` to avoid quote nesting.
+- **Removing banner comments or 'Fix N' change-history comments** in
+  `src/index.tsx` — these are intentional landmarks (`═══ PAGE:` banners and
+  inline `// Fix 1A + 1C` notes). Preserve them when editing surrounding code.
 
 ---
-*Last updated: 2026-04-25 | Update when Claude makes a new recurring mistake*
+
+## Session Start Checklist
+
+1. Read `CLAUDE.md` in full. This file contains the project constitution,
+   architecture rules, critical gotchas (especially the template-literal
+   escaping rules in `src/index.tsx`), the section map for navigating
+   `src/index.tsx`, and known past mistakes. Treat it as authoritative.
+
+2. Read `docs/STATUS.md` — confirm the current build phase and which modules
+   are genuinely complete vs in-progress vs stubbed. Do not assume anything
+   about project state from `CLAUDE.md` or `README.md` alone.
+
+3. Confirm you have read both by replying with:
+   - The current line count of `CLAUDE.md`
+   - The current phase from `docs/STATUS.md`
+   - The three most relevant rules, gotchas, or status flags for the task
+     I'm about to give you (you'll need to wait for the task before
+     answering this — just acknowledge you've noted it)
+
+4. Do NOT read any other files yet. Do NOT run builds, pm2 commands, or git
+   commands. Do NOT explore the project structure. Wait for my actual task.
+
+Once you've read both files and confirmed, I'll give you the task. When I do:
+- Use the section map in `CLAUDE.md` to jump directly to the relevant lines
+  in `src/index.tsx` with `sed -n` rather than reading the whole file.
+- Cross-check the task against `docs/STATUS.md` — if it touches a module
+  marked stubbed or in-progress, flag any assumptions before coding.
+- Follow the escaping rules strictly when editing `src/index.tsx`.
+- Run the build verification workflow from `CLAUDE.md` before declaring
+  the task done.
+- Stop and ask if a task seems to require changes outside the scope
+  I've described.
+
+---
+*Last updated: 2026-04-28 | Update when Claude makes a new recurring mistake*
