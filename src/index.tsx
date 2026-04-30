@@ -14,6 +14,11 @@ app.use('/static/*', serveStatic({ root: './' }));
 // API routes
 app.route('/api', api);
 
+// Development Tracker — standalone page (served before the SPA catch-all)
+app.get('/tracker', (c) => {
+  return c.redirect('/static/tracker.html');
+});
+
 // Main SPA — serve index.html for all routes
 app.get('*', (c) => {
   return c.html(getIndexHTML());

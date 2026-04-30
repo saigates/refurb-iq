@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RefurbIQ — Development Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .dark body { background: #0f172a; color: #e2e8f0; }
+
+    /* Timeline spine */
+    .timeline-spine {
+      position: absolute; left: 19px; top: 0; bottom: 0;
+      width: 2px; background: linear-gradient(180deg, #3b82f6 0%, #1e3a8a 100%);
+    }
+
+    /* Entry fade-in */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .entry-anim { animation: slideIn 0.3s ease both; }
+
+    /* Live pulse dot */
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .pulse-ring::before {
+      content: ''; position: absolute; inset: -4px;
+      border-radius: 50%; background: #22c55e;
+      animation: pulse-ring 1.6s ease-out infinite;
+    }
+
+    /* Stat card shimmer on hover */
+    .stat-card:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
+
+    /* Filter chip active */
+    .chip-active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+
+    /* Progress bar */
+    .progress-bar { transition: width 1s ease; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* Badge colours */
+    .badge-feature  { background: #1e40af; color: #93c5fd; }
+    .badge-fix      { background: #7c3aed; color: #c4b5fd; }
+    .badge-docs     { background: #065f46; color: #6ee7b7; }
+    .badge-init     { background: #1c1917; color: #a8a29e; }
+    .badge-plan     { background: #713f12; color: #fcd34d; }
+
+    /* Phase pill colours */
+    .phase-1 { background: #0c4a6e; color: #7dd3fc; }
+    .phase-2 { background: #14532d; color: #86efac; }
+    .phase-3 { background: #3b0764; color: #d8b4fe; }
+    .phase-4 { background: #450a0a; color: #fca5a5; }
+    .phase-general { background: #1e293b; color: #94a3b8; }
+
+    /* New entry highlight */
+    .highlight-new {
+      border-left: 3px solid #22c55e !important;
+      background: rgba(34, 197, 94, 0.05);
+    }
+  </style>
+</head>
+<body class="dark bg-slate-900 text-slate-200 min-h-screen">
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-slate-400 hover:text-white transition-colors text-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Back to RefurbIQ
+      </a>
+      <span class="text-slate-600">|</span>
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
+          <i class="fas fa-code-branch text-white text-xs"></i>
+        </div>
+        <span class="font-semibold text-white">Development Tracker</span>
+        <span class="text-xs text-slate-400 hidden sm:inline">— RefurbIQ ERP</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- Live indicator -->
+      <div class="flex items-center gap-2 text-xs text-green-400" id="live-indicator">
+        <span class="relative inline-block w-2 h-2 pulse-ring">
+          <span class="block w-2 h-2 rounded-full bg-green-400"></span>
+        </span>
+        <span id="live-label">Live</span>
+      </div>
+      <!-- Auto-refresh toggle -->
+      <button id="btn-auto-refresh"
+        class="text-xs px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 hover:border-brand-500 hover:text-brand-400 transition-colors"
+        title="Toggle auto-refresh every 30s">
+        <i class="fas fa-sync-alt mr-1" id="refresh-icon"></i>
+        <span id="refresh-label">Auto</span>
+      </button>
+      <!-- Manual refresh -->
+      <button onclick="loadAll()" class="text-xs px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white transition-colors">
+        <i class="fas fa-rotate-right mr-1"></i>Refresh
+      </button>
+      <!-- Add update -->
+      <button onclick="openAddModal()"
+        class="text-xs px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white transition-colors">
+        <i class="fas fa-plus mr-1"></i>Log Update
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- KPI stats row -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="kpi-row">
+    <div class="stat-card bg-slate-800 rounded-xl p-4 border border-slate-700 cursor-default">
+      <div class="text-xs text-slate-400 mb-1">Total Updates</div>
+      <div class="text-2xl font-bold text-white" id="stat-total">—</div>
+      <div class="text-xs text-slate-500 mt-1" id="stat-since">loading…</div>
+    </div>
+    <div class="stat-card bg-slate-800 rounded-xl p-4 border border-slate-700">
+      <div class="text-xs text-slate-400 mb-1">Phases Complete</div>
+      <div class="text-2xl font-bold text-green-400" id="stat-phases">4 / 6</div>
+      <div class="text-xs text-slate-500 mt-1">P5–P6 planned</div>
+    </div>
+    <div class="stat-card bg-slate-800 rounded-xl p-4 border border-slate-700">
+      <div class="text-xs text-slate-400 mb-1">Prod Ready</div>
+      <div class="text-2xl font-bold text-yellow-400" id="stat-ready">42%</div>
+      <div class="text-xs text-slate-500 mt-1">UI complete, infra pending</div>
+    </div>
+    <div class="stat-card bg-slate-800 rounded-xl p-4 border border-slate-700">
+      <div class="text-xs text-slate-400 mb-1">Last Activity</div>
+      <div class="text-sm font-semibold text-brand-400 leading-tight mt-1" id="stat-last-date">—</div>
+      <div class="text-xs text-slate-500 mt-1 truncate" id="stat-last-title">—</div>
+    </div>
+  </div>
+
+  <!-- Progress bars -->
+  <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4">
+    <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+      <i class="fas fa-tasks text-brand-400"></i>Build Phase Progress
+    </h2>
+    <div class="space-y-3">
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 1 — Core Foundation</span>
+          <span class="text-green-400 font-medium">✅ Complete</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-green-500 rounded-full progress-bar" style="width:100%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 2 — Risk &amp; Recovery</span>
+          <span class="text-green-400 font-medium">✅ Complete</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-green-500 rounded-full progress-bar" style="width:100%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 3 — Operations Expansion</span>
+          <span class="text-green-400 font-medium">✅ Complete</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-green-500 rounded-full progress-bar" style="width:100%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 4 — Intelligence &amp; SaaS</span>
+          <span class="text-green-400 font-medium">✅ Complete</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-green-500 rounded-full progress-bar" style="width:100%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 5 — Data Persistence (D1)</span>
+          <span class="text-yellow-400 font-medium">📋 Planned</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-yellow-500/40 rounded-full progress-bar" style="width:0%" id="p5-bar"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-300">Phase 6 — Production Hardening</span>
+          <span class="text-slate-400 font-medium">📋 Planned</span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full"><div class="h-2 bg-slate-600/40 rounded-full progress-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-chart-pie text-brand-400"></i>Updates by Type
+      </h2>
+      <div class="relative h-48"><canvas id="chart-type"></canvas></div>
+    </div>
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-chart-bar text-brand-400"></i>Updates by Phase
+      </h2>
+      <div class="relative h-48"><canvas id="chart-phase"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="flex flex-wrap gap-2 items-center" id="filter-bar">
+    <span class="text-xs text-slate-400 mr-1">Filter:</span>
+    <button class="chip chip-active text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300 hover:border-brand-500 transition-colors" data-filter="all" onclick="setFilter('all', this)">All</button>
+    <button class="chip text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300 hover:border-brand-500 transition-colors" data-filter="feature" onclick="setFilter('feature', this)"><i class="fas fa-star mr-1 text-yellow-400"></i>Feature</button>
+    <button class="chip text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300 hover:border-brand-500 transition-colors" data-filter="fix" onclick="setFilter('fix', this)"><i class="fas fa-wrench mr-1 text-purple-400"></i>Fix</button>
+    <button class="chip text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300 hover:border-brand-500 transition-colors" data-filter="docs" onclick="setFilter('docs', this)"><i class="fas fa-file-alt mr-1 text-green-400"></i>Docs</button>
+    <button class="chip text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300 hover:border-brand-500 transition-colors" data-filter="init" onclick="setFilter('init', this)"><i class="fas fa-rocket mr-1 text-slate-400"></i>Init</button>
+    <div class="ml-auto flex items-center gap-2">
+      <input id="search-input" type="text" placeholder="Search updates…"
+        oninput="renderTimeline()"
+        class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 placeholder-slate-400 focus:outline-none focus:border-brand-500 w-44" />
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div id="timeline-container" class="relative pl-12">
+    <div class="timeline-spine" id="spine"></div>
+    <div id="timeline" class="space-y-4"></div>
+    <div id="load-more-wrap" class="mt-6 text-center hidden">
+      <button onclick="loadMore()" class="text-xs px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:border-brand-500 hover:text-brand-400 transition-colors">
+        <i class="fas fa-chevron-down mr-1"></i>Load older updates
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════════════ ADD UPDATE MODAL ═══════════════════════════ -->
+<div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-lg mx-4 shadow-2xl">
+    <div class="flex items-center justify-between p-5 border-b border-slate-700">
+      <h3 class="font-semibold text-white flex items-center gap-2">
+        <i class="fas fa-plus-circle text-green-400"></i>Log a New Update
+      </h3>
+      <button onclick="closeAddModal()" class="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form id="add-form" class="p-5 space-y-4" onsubmit="submitUpdate(event)">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Title *</label>
+        <input id="f-title" type="text" required placeholder="Brief one-line summary of the update"
+          class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Detail *</label>
+        <textarea id="f-detail" required rows="3" placeholder="What was done, what changed, why it matters…"
+          class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Type *</label>
+          <select id="f-type" required class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 focus:outline-none focus:border-brand-500">
+            <option value="feature">Feature</option>
+            <option value="fix">Fix</option>
+            <option value="docs">Docs</option>
+            <option value="plan">Plan</option>
+            <option value="init">Init</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Phase</label>
+          <select id="f-phase" class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 focus:outline-none focus:border-brand-500">
+            <option value="">General</option>
+            <option value="Phase 1">Phase 1</option>
+            <option value="Phase 2">Phase 2</option>
+            <option value="Phase 3">Phase 3</option>
+            <option value="Phase 4">Phase 4</option>
+            <option value="Phase 5">Phase 5</option>
+            <option value="Phase 6">Phase 6</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Tags (comma-separated)</label>
+        <input id="f-tags" type="text" placeholder="e.g. vat, inventory, fix"
+          class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Modules Affected (comma-separated)</label>
+        <input id="f-modules" type="text" placeholder="e.g. VAT Engine, Inventory"
+          class="w-full text-sm px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div id="form-error" class="text-xs text-red-400 hidden"></div>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="closeAddModal()" class="flex-1 text-sm py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors">Cancel</button>
+        <button type="submit" id="btn-submit" class="flex-1 text-sm py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white font-medium transition-colors">
+          <i class="fas fa-check mr-1"></i>Log Update
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ DETAIL DRAWER ═══════════════════════════ -->
+<div id="detail-drawer" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-slate-800 border-l border-slate-700 z-50 translate-x-full transition-transform duration-300 overflow-y-auto">
+  <div class="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex items-center justify-between">
+    <h3 class="text-sm font-semibold text-white">Update Detail</h3>
+    <button onclick="closeDrawer()" class="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <div id="drawer-body" class="p-5"></div>
+</div>
+<div id="drawer-overlay" class="fixed inset-0 bg-black/40 z-40 hidden" onclick="closeDrawer()"></div>
+
+<!-- ═══════════════════════════ SCRIPT ═══════════════════════════ -->
+<script>
+  // ── State ─────────────────────────────────────────────────────
+  let allUpdates = [];
+  let visibleCount = 20;
+  let activeFilter = 'all';
+  let autoRefreshTimer = null;
+  let autoRefreshEnabled = true;
+  let typeChart = null;
+  let phaseChart = null;
+  let newIds = new Set();     // track newly added IDs for highlight
+  const PAGE_SIZE = 20;
+  const REFRESH_INTERVAL = 30000; // 30s
+
+  // ── Boot ──────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAll();
+    startAutoRefresh();
+  });
+
+  async function loadAll() {
+    setLiveLabel('Fetching…');
+    try {
+      const [updRes, sumRes] = await Promise.all([
+        axios.get('/api/updates?limit=200'),
+        axios.get('/api/updates/summary'),
+      ]);
+      const incoming = updRes.data.updates || [];
+      // detect new entries since last load
+      const existing = new Set(allUpdates.map(u => u.update_id));
+      incoming.forEach(u => { if (!existing.has(u.update_id)) newIds.add(u.update_id); });
+      allUpdates = incoming;
+      renderKPIs(sumRes.data);
+      renderCharts(sumRes.data);
+      renderTimeline();
+      setLiveLabel('Live');
+    } catch (e) {
+      setLiveLabel('Error');
+      console.error(e);
+    }
+  }
+
+  // ── KPI bar ───────────────────────────────────────────────────
+  function renderKPIs(summary) {
+    document.getElementById('stat-total').textContent = summary.total;
+    document.getElementById('stat-since').textContent = 'since Jan 2026';
+    if (summary.latest_date) {
+      document.getElementById('stat-last-date').textContent = fmtDate(summary.latest_date);
+      document.getElementById('stat-last-title').textContent = summary.latest_title || '';
+    }
+  }
+
+  // ── Charts ────────────────────────────────────────────────────
+  const CHART_OPTS = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } } }
+  };
+  const TYPE_COLOURS = {
+    feature: '#3b82f6', fix: '#8b5cf6', docs: '#10b981',
+    init: '#64748b', plan: '#f59e0b'
+  };
+
+  function renderCharts(summary) {
+    // Type doughnut
+    const typeLabels = Object.keys(summary.byType);
+    const typeData   = typeLabels.map(k => summary.byType[k]);
+    const typeBg     = typeLabels.map(k => TYPE_COLOURS[k] || '#64748b');
+
+    if (typeChart) typeChart.destroy();
+    typeChart = new Chart(document.getElementById('chart-type'), {
+      type: 'doughnut',
+      data: { labels: typeLabels.map(capitalise), datasets: [{ data: typeData, backgroundColor: typeBg, borderWidth: 1, borderColor: '#1e293b' }] },
+      options: { ...CHART_OPTS, cutout: '65%' }
+    });
+
+    // Phase bar
+    const phaseLabels = Object.keys(summary.byPhase);
+    const phaseData   = phaseLabels.map(k => summary.byPhase[k]);
+
+    if (phaseChart) phaseChart.destroy();
+    phaseChart = new Chart(document.getElementById('chart-phase'), {
+      type: 'bar',
+      data: {
+        labels: phaseLabels,
+        datasets: [{
+          label: 'Updates',
+          data: phaseData,
+          backgroundColor: '#2563eb',
+          borderRadius: 4,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        ...CHART_OPTS,
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 }, stepSize: 1 }, grid: { color: '#334155' } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // ── Filter ────────────────────────────────────────────────────
+  function setFilter(f, el) {
+    activeFilter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip-active'));
+    el.classList.add('chip-active');
+    visibleCount = PAGE_SIZE;
+    renderTimeline();
+  }
+
+  function getFiltered() {
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+    return allUpdates.filter(u => {
+      if (activeFilter !== 'all' && u.type !== activeFilter) return false;
+      if (q) {
+        const haystack = (u.title + ' ' + u.detail + ' ' + (u.tags || []).join(' ') + ' ' + (u.modules_affected || []).join(' ')).toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ── Timeline render ───────────────────────────────────────────
+  function renderTimeline() {
+    const filtered = getFiltered();
+    const visible  = filtered.slice(0, visibleCount);
+    const container = document.getElementById('timeline');
+
+    // Group by date
+    const groups = {};
+    visible.forEach(u => {
+      const d = u.date;
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(u);
+    });
+
+    let html = '';
+    Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(date => {
+      html += `
+        <div class="relative mb-1">
+          <!-- Date label -->
+          <div class="flex items-center gap-3 mb-3 -ml-12">
+            <div class="w-10 h-10 rounded-full bg-slate-700 border-2 border-brand-600 flex items-center justify-center flex-shrink-0 z-10">
+              <i class="fas fa-calendar-day text-brand-400 text-xs"></i>
+            </div>
+            <span class="text-xs font-semibold text-slate-300 bg-slate-900 px-2">${fmtDate(date)}</span>
+            <div class="flex-1 h-px bg-slate-700/60"></div>
+          </div>
+          <div class="space-y-3 ml-0">
+            ${groups[date].map(u => entryHTML(u)).join('')}
+          </div>
+        </div>`;
+    });
+
+    if (!html) {
+      html = `<div class="text-center py-12 text-slate-500">
+        <i class="fas fa-search text-3xl mb-3 block opacity-40"></i>
+        No updates match the current filter.
+      </div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Load more button
+    const moreWrap = document.getElementById('load-more-wrap');
+    moreWrap.classList.toggle('hidden', filtered.length <= visibleCount);
+
+    // Clear new-entry highlighting after render
+    setTimeout(() => { newIds.clear(); }, 3000);
+  }
+
+  function entryHTML(u) {
+    const typeIcon  = { feature: 'fa-star', fix: 'fa-wrench', docs: 'fa-file-alt', init: 'fa-rocket', plan: 'fa-map' }[u.type] || 'fa-circle';
+    const typeColour = { feature: 'text-yellow-400', fix: 'text-purple-400', docs: 'text-green-400', init: 'text-slate-400', plan: 'text-orange-400' }[u.type] || 'text-slate-400';
+    const phasePill = u.phase ? phasePillHTML(u.phase) : '';
+    const isNew = newIds.has(u.update_id);
+    const tags  = (u.tags || []).map(t => `<span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">${esc(t)}</span>`).join('');
+    const mods  = (u.modules_affected || []).length
+      ? `<span class="text-xs text-slate-400"><i class="fas fa-layer-group mr-1"></i>${u.modules_affected.map(esc).join(', ')}</span>` : '';
+
+    return `
+      <div class="entry-anim bg-slate-800 rounded-xl border border-slate-700 p-4 hover:border-brand-600/60 transition-colors cursor-pointer ${isNew ? 'highlight-new' : ''}"
+           onclick="openDrawer(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+        <div class="flex items-start gap-3">
+          <div class="mt-0.5 w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+            <i class="fas ${typeIcon} text-xs ${typeColour}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="text-sm font-medium text-white">${esc(u.title)}</span>
+              ${phasePill}
+              <span class="badge-${u.type} text-xs px-2 py-0.5 rounded-full font-medium">${capitalise(u.type)}</span>
+              ${isNew ? '<span class="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded-full font-medium">NEW</span>' : ''}
+            </div>
+            <p class="text-xs text-slate-400 line-clamp-2 mb-2">${esc(u.detail)}</p>
+            <div class="flex flex-wrap items-center gap-2">
+              ${mods}
+              ${tags}
+              <span class="ml-auto text-xs text-slate-500">${esc(u.update_id)}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function phasePillHTML(phase) {
+    const cls = { 'Phase 1': 'phase-1', 'Phase 2': 'phase-2', 'Phase 3': 'phase-3', 'Phase 4': 'phase-4' }[phase] || 'phase-general';
+    return `<span class="${cls} text-xs px-2 py-0.5 rounded-full font-medium">${esc(phase)}</span>`;
+  }
+
+  // ── Load more ─────────────────────────────────────────────────
+  function loadMore() {
+    visibleCount += PAGE_SIZE;
+    renderTimeline();
+  }
+
+  // ── Detail drawer ─────────────────────────────────────────────
+  function openDrawer(u) {
+    if (typeof u === 'string') u = JSON.parse(u);
+    const commits = (u.commits || []).map(c =>
+      `<code class="text-xs bg-slate-700 text-brand-300 px-2 py-0.5 rounded">${esc(c)}</code>`
+    ).join(' ');
+    const tags = (u.tags || []).map(t =>
+      `<span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">${esc(t)}</span>`
+    ).join('');
+    const mods = (u.modules_affected || []).map(m =>
+      `<span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded-full">${esc(m)}</span>`
+    ).join('');
+
+    document.getElementById('drawer-body').innerHTML = `
+      <div class="space-y-4">
+        <div>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <span class="badge-${u.type} text-xs px-2 py-0.5 rounded-full font-medium">${capitalise(u.type)}</span>
+            ${u.phase ? phasePillHTML(u.phase) : ''}
+          </div>
+          <h2 class="text-base font-semibold text-white leading-snug">${esc(u.title)}</h2>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-400">
+          <span><i class="fas fa-calendar mr-1"></i>${fmtDate(u.date)}</span>
+          <span><i class="fas fa-user mr-1"></i>${esc(u.author || '—')}</span>
+          <span class="ml-auto font-mono text-slate-500">${esc(u.update_id)}</span>
+        </div>
+        <div class="bg-slate-700/50 rounded-lg p-3">
+          <p class="text-sm text-slate-300 leading-relaxed">${esc(u.detail)}</p>
+        </div>
+        ${mods ? `<div><div class="text-xs text-slate-400 mb-1">Modules Affected</div><div class="flex flex-wrap gap-1">${mods}</div></div>` : ''}
+        ${tags ? `<div><div class="text-xs text-slate-400 mb-1">Tags</div><div class="flex flex-wrap gap-1">${tags}</div></div>` : ''}
+        ${commits ? `<div><div class="text-xs text-slate-400 mb-1">Commits</div><div class="flex flex-wrap gap-1">${commits}</div></div>` : ''}
+      </div>`;
+    document.getElementById('detail-drawer').classList.remove('translate-x-full');
+    document.getElementById('drawer-overlay').classList.remove('hidden');
+  }
+
+  function closeDrawer() {
+    document.getElementById('detail-drawer').classList.add('translate-x-full');
+    document.getElementById('drawer-overlay').classList.add('hidden');
+  }
+
+  // ── Add modal ─────────────────────────────────────────────────
+  function openAddModal() {
+    document.getElementById('add-modal').classList.remove('hidden');
+    document.getElementById('f-title').focus();
+  }
+  function closeAddModal() {
+    document.getElementById('add-modal').classList.add('hidden');
+    document.getElementById('add-form').reset();
+    document.getElementById('form-error').classList.add('hidden');
+  }
+
+  async function submitUpdate(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('form-error');
+    const btn = document.getElementById('btn-submit');
+    errEl.classList.add('hidden');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const payload = {
+      title: document.getElementById('f-title').value.trim(),
+      detail: document.getElementById('f-detail').value.trim(),
+      type: document.getElementById('f-type').value,
+      phase: document.getElementById('f-phase').value || null,
+      tags: document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+      modules_affected: document.getElementById('f-modules').value.split(',').map(m => m.trim()).filter(Boolean),
+    };
+
+    try {
+      const res = await axios.post('/api/updates', payload);
+      newIds.add(res.data.update_id);
+      closeAddModal();
+      await loadAll();
+    } catch (err) {
+      errEl.textContent = err?.response?.data?.error || 'Failed to save update.';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check mr-1"></i>Log Update';
+    }
+  }
+
+  // ── Auto-refresh ──────────────────────────────────────────────
+  function startAutoRefresh() {
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(loadAll, REFRESH_INTERVAL);
+    updateRefreshBtn();
+  }
+  function stopAutoRefresh() {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    updateRefreshBtn();
+  }
+  document.getElementById('btn-auto-refresh').addEventListener('click', () => {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    autoRefreshEnabled ? startAutoRefresh() : stopAutoRefresh();
+  });
+  function updateRefreshBtn() {
+    document.getElementById('refresh-label').textContent = autoRefreshEnabled ? 'Auto' : 'Manual';
+    document.getElementById('refresh-icon').className = autoRefreshEnabled ? 'fas fa-sync-alt mr-1 text-green-400 animate-spin' : 'fas fa-sync-alt mr-1';
+    // Remove spin immediately (just a flash)
+    setTimeout(() => {
+      document.getElementById('refresh-icon').classList.remove('animate-spin');
+    }, 800);
+  }
+  function setLiveLabel(txt) {
+    document.getElementById('live-label').textContent = txt;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function fmtDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d + 'T00:00:00Z');
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  }
+  function capitalise(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

@@ -670,3 +670,206 @@ api.post('/devices/batch-override', async (c) => {
   }
   return c.json({ success: true, overrides_created: results.length, results });
 });
+
+// ── Project Update Tracker ─────────────────────────────────────────────────────
+// Static changelog derived from git history + STATUS.md phase data.
+// New manual entries can be POSTed and are held in the module-level array below.
+const manualUpdates: any[] = [];
+
+const PHASE_CHANGELOG = [
+  {
+    update_id: 'UPD-013',
+    date: '2026-04-28',
+    type: 'docs',
+    phase: null,
+    title: 'Session Start Checklist added to CLAUDE.md',
+    detail: 'Formalised the session-start protocol: read CLAUDE.md + docs/STATUS.md, confirm line count and phase, wait for task before acting.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['docs', 'process'],
+    modules_affected: [],
+  },
+  {
+    update_id: 'UPD-012',
+    date: '2026-04-28',
+    type: 'docs',
+    phase: null,
+    title: 'docs/COMPONENT_OVERVIEW.md created',
+    detail: 'Senior consultant analysis: 12-component integration overview, progress summary (42% production-ready), top-3 priorities, critical gaps (no auth, in-memory DB, OPR doc vault stub), and technology recommendations for D1/R2/KV/Resend.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['docs', 'planning'],
+    modules_affected: [],
+  },
+  {
+    update_id: 'UPD-011',
+    date: '2026-04-28',
+    type: 'docs',
+    phase: null,
+    title: 'docs/STATUS.md created',
+    detail: 'Comprehensive project status file covering all 4 completed phases, Phase 5/6 planned work, 10 non-negotiable controls, known stubs, codebase metrics, and deployment status. Update rule: edit whenever a phase ticks over.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['docs', 'tracking'],
+    modules_affected: [],
+  },
+  {
+    update_id: 'UPD-010',
+    date: '2026-04-27',
+    type: 'docs',
+    phase: null,
+    title: 'CLAUDE.md project intelligence file added',
+    detail: 'Project constitution document: architecture rules, single-file constraint, section map for src/index.tsx, critical gotchas (template-literal escaping, window._ globals, supplier dropdown pattern), build verification workflow, known past mistakes.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['docs', 'process'],
+    modules_affected: [],
+  },
+  {
+    update_id: 'UPD-009',
+    date: '2026-04-11',
+    type: 'feature',
+    phase: 'Phase 4',
+    title: 'Phase 4 complete: Intelligence & SaaS',
+    detail: 'IMEI/Barcode Scanner with scan-to-intake workflow, Marketplace Hub with multi-channel sync controls, SaaS Tenant Management with suspend/reactivate, Device Variants Catalogue with CSV import, Bulk Override engine, in-app Notifications feed. Also: sidebar vertical scroll + collapse, light/dark theme toggle, fixed browser JS syntax errors.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['phase-complete', 'scanner', 'marketplace', 'tenants', 'variants', 'notifications'],
+    modules_affected: ['Scanner', 'Marketplace Hub', 'Tenant Management', 'Variants Catalogue', 'Bulk Override', 'Notifications'],
+    commits: ['c464178', 'ca4b895', 'c520f18', 'ceeae0a', 'd1d2f3e', '16cdd0a', '86d9aa0'],
+  },
+  {
+    update_id: 'UPD-008',
+    date: '2026-04-05',
+    type: 'fix',
+    phase: 'Phase 4',
+    title: 'Fix: dynamic supplier dropdowns + VAT auto-populate in batch modals',
+    detail: 'showImportModal() and showNewBatchModal() now always async-fetch GET /suppliers?active=true on every open. VAT code field auto-populates from supplier default_vat_code. Removed all hardcoded supplier option patterns.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['fix', 'suppliers', 'vat'],
+    modules_affected: ['Suppliers & Batches', 'Inventory'],
+    commits: ['16cdd0a'],
+  },
+  {
+    update_id: 'UPD-007',
+    date: '2026-03-28',
+    type: 'fix',
+    phase: 'Phase 4',
+    title: 'Fix: functional IMEI CSV file upload in Import Batch modal',
+    detail: 'parseImportCsvFile() now correctly reads File objects via FileReader API. Duplicate IMEI detection working end-to-end. Import results summary displayed after submission.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['fix', 'csv', 'imei', 'inventory'],
+    modules_affected: ['Inventory'],
+    commits: ['d1d2f3e'],
+  },
+  {
+    update_id: 'UPD-006',
+    date: '2026-03-20',
+    type: 'feature',
+    phase: 'Phase 3',
+    title: 'Phase 3 complete: Operations Expansion',
+    detail: 'Supplier Analytics with per-supplier quality scoring and batch performance charts. HMRC MTD VAT Returns with 9-box preview and stub submission endpoint. Audit Log with full filterable trail, override records, and severity breakdown.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['phase-complete', 'supplier-analytics', 'mtd', 'audit-log'],
+    modules_affected: ['Supplier Analytics', 'HMRC MTD Returns', 'Audit Log'],
+    commits: ['51b5022'],
+  },
+  {
+    update_id: 'UPD-005',
+    date: '2026-03-10',
+    type: 'feature',
+    phase: 'Phase 2',
+    title: 'Phase 2 complete: Risk & Recovery + Enhanced Dashboard v2.2',
+    detail: 'Repairs & Refurbishment module with job cards, outcome tracking, and cost capture. Enhanced Dashboard v2.2 adding repair stats and INR summary KPIs. Profitability & Unit P&L with per-unit margin analysis and make-level chart.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['phase-complete', 'repairs', 'dashboard', 'pnl'],
+    modules_affected: ['Repairs', 'Dashboard', 'Profitability & P&L'],
+    commits: ['330d3cd'],
+  },
+  {
+    update_id: 'UPD-004',
+    date: '2026-03-01',
+    type: 'feature',
+    phase: 'Phase 2',
+    title: 'Courier/INR, Returns & RMA, and P&L modules added',
+    detail: 'Courier & INR Investigations with escalation tracking. Returns & RMA with IMEI-matching enforcement and refund/replacement workflows. Profitability & Unit P&L base implementation.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['courier', 'rma', 'pnl', 'investigations'],
+    modules_affected: ['Courier & INR', 'Returns & RMA', 'Profitability & P&L'],
+    commits: ['69c9022'],
+  },
+  {
+    update_id: 'UPD-003',
+    date: '2026-02-15',
+    type: 'docs',
+    phase: 'Phase 1',
+    title: 'README.md added — Phase 1 build complete',
+    detail: 'README documents all 10 Phase 1 modules, VAT engine logic, API endpoint table, data architecture, non-negotiable controls, and tech stack. Phase 1 milestone: Core Foundation declared complete.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['docs', 'phase-complete'],
+    modules_affected: [],
+    commits: ['66aa508'],
+  },
+  {
+    update_id: 'UPD-002',
+    date: '2026-01-20',
+    type: 'feature',
+    phase: 'Phase 1',
+    title: 'Phase 1 initial implementation: complete ERP with VAT Engine',
+    detail: 'Full Phase 1 delivered: Dashboard, Inventory & Goods-In, Quality Control, OPR Engine, Orders, VAT Engine (8 codes, HMRC 9-box, DRC threshold, export override), Fintech Advances, Suppliers & Batches, Support & Tickets, Admin & Settings. All 10 non-negotiable controls active.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['phase-complete', 'vat-engine', 'opr', 'inventory', 'qc'],
+    modules_affected: ['Dashboard', 'Inventory', 'QC', 'OPR', 'Orders', 'VAT Engine', 'Fintech', 'Suppliers', 'Support', 'Admin'],
+    commits: ['921d9e7'],
+  },
+  {
+    update_id: 'UPD-001',
+    date: '2026-01-15',
+    type: 'init',
+    phase: null,
+    title: 'Project initialised: RefurbIQ v2.0',
+    detail: 'Hono v4 + Cloudflare Pages scaffold. TypeScript, Vite build, Wrangler v3, Tailwind CSS + Chart.js + Axios via CDN. Single-file SPA architecture established. Git repository initialised.',
+    author: 'admin@refurbiq.co.uk',
+    tags: ['init'],
+    modules_affected: [],
+    commits: ['921d9e7'],
+  },
+];
+
+api.get('/updates', (c) => {
+  const { type, phase, limit, offset: off } = c.req.query();
+  let result = [...PHASE_CHANGELOG, ...manualUpdates].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+  if (type)  result = result.filter(u => u.type === type);
+  if (phase) result = result.filter(u => u.phase === phase);
+  const total = result.length;
+  const start = parseInt(off || '0');
+  const end   = start + parseInt(limit || '50');
+  return c.json({ total, updates: result.slice(start, end) });
+});
+
+api.get('/updates/summary', (c) => {
+  const all = [...PHASE_CHANGELOG, ...manualUpdates];
+  const byType: Record<string, number> = {};
+  const byPhase: Record<string, number> = {};
+  for (const u of all) {
+    byType[u.type]  = (byType[u.type]  || 0) + 1;
+    const p = u.phase || 'General';
+    byPhase[p] = (byPhase[p] || 0) + 1;
+  }
+  const latest = [...all].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  return c.json({ total: all.length, byType, byPhase, latest_date: latest?.date, latest_title: latest?.title });
+});
+
+api.post('/updates', async (c) => {
+  const body = await c.req.json();
+  const { title, detail, type, phase, tags, modules_affected } = body;
+  if (!title || !detail || !type)
+    return c.json({ error: 'title, detail, type are required' }, 400);
+  const newUpdate = {
+    update_id: 'UPD-M' + Date.now(),
+    date: new Date().toISOString().slice(0, 10),
+    type, phase: phase || null, title, detail,
+    author: 'admin@refurbiq.co.uk',
+    tags: tags || [],
+    modules_affected: modules_affected || [],
+  };
+  manualUpdates.push(newUpdate);
+  return c.json(newUpdate, 201);
+});
